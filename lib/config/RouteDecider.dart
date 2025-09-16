@@ -19,7 +19,7 @@ class _RouteDeciderState extends State<RouteDecider> {
   Future<void> _checkRoute() async {
     final prefs = await SharedPreferences.getInstance();
 
-    final isProfileComplete = prefs.getBool("isProfileComplete") ?? false;
+    final isProfileComplete = prefs.getBool("isDriverProfileCompleted") ?? false;
 
     if (!mounted) return;
 

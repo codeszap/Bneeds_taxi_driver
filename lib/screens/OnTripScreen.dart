@@ -322,69 +322,83 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
             child: Material(
               elevation: 8,
               borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Pickup: ${trip.pickup}",
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      "Drop: ${trip.drop}",
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      "Fare: ₹${trip.fare}",
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    if (trip.status == TripStatus.onTrip)
+              child: GestureDetector(
+                onTap: () {
+                         ref.read(tripProvider.notifier).completeTrip();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const TripCompleteScreen()),
+                            );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        "Elapsed Time: ${trip.elapsedTime} sec",
+                        "Pickup: Ashok Nagar",
+                        // "Pickup: ${trip.pickup}",
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                    const SizedBox(height: 12),
-                    if (trip.status == TripStatus.accepted)
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                        ),
-                        onPressed: () {
-                          showOtpDialog(
-                            context,
-                            ref,
-                            () => simulateTaxiMovement(),
-                          );
-                        },
-                        child: const Text("Start Trip"),
+                      Text(
+                        // "Drop: ${trip.drop}",
+                        "Drop: Periyar Nagar",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                    if (trip.status == TripStatus.onTrip && trip.canCompleteTrip)
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                        ),
-                        onPressed: () {
-                          ref.read(tripProvider.notifier).completeTrip();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const TripCompleteScreen()),
-                          );
-                        },
-                        child: const Text("Complete Trip"),
+                      Text(
+                        // "Fare: ₹${trip.fare}",
+                             "Fare: ₹300",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                  ],
+                      const SizedBox(height: 8),
+                      if (trip.status == TripStatus.onTrip)
+                        Text(
+                          "Elapsed Time: ${trip.elapsedTime} sec",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      const SizedBox(height: 12),
+                      if (trip.status == TripStatus.accepted)
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                          ),
+                          onPressed: () {
+                            showOtpDialog(
+                              context,
+                              ref,
+                              () => simulateTaxiMovement(),
+                            );
+                          },
+                          child: const Text("Start Trip"),
+                        ),
+                      if (trip.status == TripStatus.onTrip && trip.canCompleteTrip)
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                          ),
+                          onPressed: () {
+                            ref.read(tripProvider.notifier).completeTrip();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const TripCompleteScreen()),
+                            );
+                          },
+                          child: const Text("Complete Trip"),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
+        
         ],
       ),
     );

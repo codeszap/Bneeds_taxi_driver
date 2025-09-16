@@ -5,3 +5,4 @@ import 'vehicle_repository_provider.dart';
 final vehicleTypesProvider = FutureProvider<List<VehicleTypeModel>>((ref) {
   return ref.read(vehicleRepositoryProvider).fetchVehicleTypes();
 });
+

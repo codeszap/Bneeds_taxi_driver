@@ -185,7 +185,7 @@ class DriverLoginScreen extends ConsumerWidget {
                               width: 24,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                color: Colors.black87,
+                                color: Colors.white,
                               ),
                             )
                           : const Text(

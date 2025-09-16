@@ -18,7 +18,7 @@ class _DriverSplashScreenState extends State<DriverSplashScreen> {
 
   Future<void> _checkRoute() async {
     final prefs = await SharedPreferences.getInstance();
-    final isProfileComplete = prefs.getBool("isProfileComplete") ?? false;
+    final isProfileComplete = prefs.getBool("isDriverProfileCompleted") ?? false;
 
     // Small delay so splash screen shows
     await Future.delayed(const Duration(seconds: 2));

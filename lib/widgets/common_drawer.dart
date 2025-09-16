@@ -1,3 +1,4 @@
+import 'package:bneeds_taxi_driver/providers/driverStatusProvider.dart';
 import 'package:bneeds_taxi_driver/providers/profile_provider.dart';
 import 'package:bneeds_taxi_driver/screens/ProfileScreen.dart';
 import 'package:flutter/material.dart';
@@ -5,19 +6,35 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class CommonDrawer extends StatelessWidget {
+class CommonDrawer extends ConsumerWidget {
   const CommonDrawer({super.key});
 
   Future<Map<String, String>> _loadSessionData() async {
     final prefs = await SharedPreferences.getInstance();
     return {
-      "username": prefs.getString('username') ?? "Guest",
-      "mobileno": prefs.getString('mobileno') ?? "N/A",
+      "username": prefs.getString('userid') ?? "Guest",
+      "mobileno": prefs.getString('mobno') ?? "N/A",
     };
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(driverStatusProvider); // "OL", "OF", "RB"
+
+    // --- Status colors ---
+    Color bgColor;
+    Color textColor;
+    if (status == "OL") {
+      bgColor = Colors.yellow;
+      textColor = Colors.black;
+    } else if (status == "RB") {
+      bgColor = Colors.green;
+      textColor = Colors.white;
+    } else {
+      bgColor = Colors.red;
+      textColor = Colors.white;
+    }
+
     return Drawer(
       child: Column(
         children: [
@@ -27,7 +44,7 @@ class CommonDrawer extends StatelessWidget {
               if (!snapshot.hasData) {
                 return Container(
                   padding: const EdgeInsets.all(20),
-                  color: Colors.deepPurple,
+                  color: bgColor,
                   child: const Center(
                     child: CircularProgressIndicator(color: Colors.white),
                   ),
@@ -36,11 +53,8 @@ class CommonDrawer extends StatelessWidget {
 
               final user = snapshot.data!;
               return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 20,
-                ),
-                color: Colors.deepPurple,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                color: bgColor,
                 child: Column(
                   children: [
                     const SizedBox(height: 20),
@@ -48,12 +62,8 @@ class CommonDrawer extends StatelessWidget {
                       children: [
                         CircleAvatar(
                           radius: 30,
-                          backgroundColor: Colors.deepPurple.shade50,
-                          child: const Icon(
-                            Icons.person,
-                            size: 30,
-                            color: Colors.black,
-                          ),
+                          backgroundColor: Colors.white,
+                          child: const Icon(Icons.person, size: 30, color: Colors.black),
                         ),
                         const SizedBox(width: 16),
                         Column(
@@ -61,18 +71,18 @@ class CommonDrawer extends StatelessWidget {
                           children: [
                             Text(
                               user["username"]!,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: textColor,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               user["mobileno"]!,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
-                                color: Colors.grey,
+                                color: textColor.withOpacity(0.8),
                               ),
                             ),
                           ],
@@ -86,13 +96,13 @@ class CommonDrawer extends StatelessWidget {
             },
           ),
 
-          // ✅ Rest of drawer items
+          // Drawer Items
           _buildDrawerItem(
             icon: Icons.dashboard,
             title: "Dashboard",
             onTap: () {
               Navigator.pop(context);
-              context.push('/home');
+              context.push('/driverHome');
             },
           ),
           _buildDrawerItem(
@@ -116,7 +126,7 @@ class CommonDrawer extends StatelessWidget {
             title: "Profile",
             onTap: () {
               Navigator.pop(context);
-              context.push('/profile');
+              context.push('/driverProfile');
             },
           ),
           _buildDrawerItem(
@@ -130,15 +140,14 @@ class CommonDrawer extends StatelessWidget {
 
           const Spacer(),
 
-          // ✅ Logout button same as before
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: ElevatedButton.icon(
               icon: const Icon(Icons.logout),
               label: const Text("Logout"),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
+                backgroundColor: bgColor,
+                foregroundColor: textColor,
                 minimumSize: const Size.fromHeight(48),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -150,7 +159,6 @@ class CommonDrawer extends StatelessWidget {
 
                 if (context.mounted) {
                   final container = ProviderScope.containerOf(context);
-                //  container.invalidate(credentialsProvider);
                   container.invalidate(fetchProfileProvider);
                   context.go('/login');
                 }
@@ -169,12 +177,12 @@ class CommonDrawer extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     return ListTile(
-      leading: Icon(icon, color: Colors.deepPurple),
+      leading: Icon(icon, color: Colors.yellow.shade700),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       onTap: onTap,
       horizontalTitleGap: 12,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      hoverColor: Colors.deepPurple.withOpacity(0.05),
+      hoverColor: Colors.yellow.withOpacity(0.05),
     );
   }
 }

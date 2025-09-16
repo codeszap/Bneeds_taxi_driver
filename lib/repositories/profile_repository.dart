@@ -2,123 +2,152 @@ import 'dart:convert';
 import 'package:bneeds_taxi_driver/core/api_client.dart';
 import 'package:bneeds_taxi_driver/core/api_endpoints.dart';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_profile_model.dart';
+class ApiResponse {
+  final String status;
+  final String message;
+  final dynamic data;
+
+  ApiResponse({required this.status, required this.message, this.data});
+
+  factory ApiResponse.fromJson(Map<String, dynamic> json) {
+    return ApiResponse(
+      status: json['status'] ?? 'error',
+      message: json['message'] ?? '',
+      data: json['data'],
+    );
+  }
+
+  void operator [](String other) {}
+}
 
 class ProfileRepository {
   final Dio _dio = ApiClient().dio;
 
-  Future<List<UserProfile>> fetchUserProfile({required String mobileno}) async {
-    final String url =
-        "${ApiEndpoints.userProfile}?action=L&mobileno=$mobileno";
-
-    print("📡 Fetch Profile API URL: ${_dio.options.baseUrl}$url");
+  Future<List<DriverProfile>> getRiderLogin({required String mobileno}) async {
+    final url = "frmRiderProfileApi.aspx?action=L&mobileno=$mobileno";
 
     try {
       final response = await _dio.get(url);
 
-      print("✅ Status: ${response.statusCode}");
-      print("📦 Data type: ${response.data.runtimeType}");
-      print("📦 Data: ${response.data}");
+      // முழு response data print பண்ண
+      print("Raw response: ${response.data}");
 
-      final data = response.data is String
-          ? jsonDecode(response.data)
-          : response.data;
+      final data = response.data is String ? jsonDecode(response.data) : response.data;
 
-      if (response.statusCode == 200 && data is Map) {
-        final status = data['status']?.toString().toLowerCase();
+      // decode ஆனது print பண்ண
+      print("Decoded data: $data");
 
-        if (status == 'error') {
-          print("⚠ No user found: ${data['message']}");
-          return []; // or throw Exception(data['message']);
-        }
-
-        if (status == 'success' && data['data'] is List) {
-          return (data['data'] as List)
-              .map((json) => UserProfile.fromJson(json))
-              .toList();
-        }
-
-        throw Exception("Unexpected success response format");
+      if (data['status'] == 'success' && data['data'] != null) {
+        final riders = List<Map<String, dynamic>>.from(data['data']);
+        return riders.map((r) => DriverProfile.fromJson(r)).toList();
       } else {
-        throw Exception("Unexpected response format");
+        return [];
       }
-    } catch (e) {
-      print("❌ Error fetching profile: $e");
-      throw Exception("Error fetching profile: $e");
+    } on DioException catch (e) {
+      print("Error fetching rider login: ${e.response?.data ?? e.message}");
+      return [];
     }
+
   }
 
-  /// 🔹 Insert New Profile
-  Future<String> insertUserProfile(UserProfile profile) async {
-    final String url = "${ApiEndpoints.userProfile}?action=I";
+  /// Insert driver profile → return success message
+  // Future<ApiResponse> insertUserProfile(DriverProfile profile) async {
+  //   final url = "frmRiderProfileApi.aspx?action=I";
+  //   final body = {"RiderprofileDet": [profile.toJson()]};
 
-    final body = {
-      "userprofileDet": [profile.toJson()],
-    };
+  //   try {
+  //     final response = await _dio.post(
+  //       url,
+  //       data: body,
+  //       options: Options(headers: {"Content-Type": "application/json"}),
+  //     );
 
-    print("📡 Insert API URL: ${_dio.options.baseUrl}$url");
-    print("📦 Insert Payload: ${jsonEncode(body)}");
+  //     final data = response.data is String ? jsonDecode(response.data) : response.data;
+  //     return ApiResponse.fromJson(data);
+  //   } on DioException catch (e) {
+  //     return ApiResponse(
+  //       status: "error",
+  //       message: e.response?.data.toString() ?? e.message ?? "Unknown error",
+  //     );
+  //   }
+  // }
 
-    try {
-      final response = await _dio.post(
-        url,
-        data: jsonEncode(body),
-        options: Options(headers: {'Content-Type': 'application/json'}),
-      );
+  Future<ApiResponse> insertUserProfile(DriverProfile profile) async {
+  final url = "frmRiderProfileApi.aspx?action=I";
+  final body = {"RiderprofileDet": [profile.toJson()]};
 
-      print("✅ Insert Response: ${response.data}");
+  try {
+    final response = await _dio.post(
+      url,
+      data: body,
+      options: Options(headers: {"Content-Type": "application/json"}),
+    );
 
-      if (response.statusCode == 200) {
-        final data = response.data is String
-            ? jsonDecode(response.data)
-            : response.data;
+    final data = response.data is String ? jsonDecode(response.data) : response.data;
 
-        return data["status"] == "success"
-            ? "Insert Successfully"
-            : data["message"] ?? "Insert Failed";
-      } else {
-        throw Exception("Insert failed: ${response.statusCode}");
-      }
-    } catch (e) {
-      print("❌ Error inserting profile: $e");
-      throw Exception("Error inserting profile: $e");
+    if (data["status"] == "success" && data["Riderid"] != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString("riderId", data["Riderid"].toString());
+      print("✅ RiderId saved: ${data["Riderid"]}");
     }
+
+    return ApiResponse.fromJson(data);
+  } on DioException catch (e) {
+    return ApiResponse(
+      status: "error",
+      message: e.response?.data.toString() ?? e.message ?? "Unknown error",
+    );
   }
+}
 
-  /// 🔹 Update Existing Profile
-  Future<String> updateUserProfile(UserProfile profile) async {
-    final String url = "${ApiEndpoints.userProfile}?action=U";
 
-    final body = {
-      "userprofileupdate": [profile.toJson()],
-    };
+Future<ApiResponse> updateDriverStatus({
+  required String riderId,
+  required String riderStatus,
+  required String fromLatLong,
+}) async {
+  final url = "frmRiderProfileApi.aspx?action=U";
 
-    print("📡 Update API URL: ${_dio.options.baseUrl}$url");
-    print("📦 Update Payload: ${jsonEncode(body)}");
-
-    try {
-      final response = await _dio.post(
-        url,
-        data: jsonEncode(body),
-        options: Options(headers: {'Content-Type': 'application/json'}),
-      );
-
-      print("✅ Update Response: ${response.data}");
-
-      if (response.statusCode == 200) {
-        final data = response.data is String
-            ? jsonDecode(response.data)
-            : response.data;
-
-        return data["status"] == "success"
-            ? "Updated Successfully"
-            : data["message"] ?? "Update Failed";
-      } else {
-        throw Exception("Update failed: ${response.statusCode}");
-      }
-    } catch (e) {
-      print("❌ Error updating profile: $e");
-      throw Exception("Error updating profile: $e");
+final body = jsonEncode({
+  "updateriderpro": [
+    {
+      "Riderid": riderId,
+      "FromLatLong": fromLatLong,
+      "riderstatus": riderStatus,
+      "timestamp": DateTime.now().toIso8601String(),
     }
+  ]
+});
+
+  try {
+    print("🚀 Calling API: $url");
+    print("📦 Body: $body");
+
+    final response = await _dio.post(
+      url,
+      data: body,
+      options: Options(headers: {"Content-Type": "application/json"}),
+    );
+
+    print("✅ Raw Response: ${response.data}");
+
+    final data = response.data is String
+        ? jsonDecode(response.data)
+        : response.data;
+
+    return ApiResponse(
+      status: data['status'] ?? 'error',
+      message: data['message'] ?? 'Unknown',
+    );
+  } on DioException catch (e) {
+    print("❌ Dio Error: ${e.response?.data ?? e.message}");
+    return ApiResponse(
+      status: "error",
+      message: e.response?.data.toString() ?? e.message ?? "Unknown error",
+    );
   }
+}
+
 }

@@ -69,76 +69,45 @@ class _OTPDialogState extends State<OTPDialog> {
   void _submitOTP() async {
     final otp = otpControllers.map((c) => c.text).join();
     if (otp.length == 4) {
-      // -----------------------------
-      // Temporary testing logic
-      // -----------------------------
-      if (otp == '1234') {
+      try {
         final username = widget.ref.read(usernameProvider);
         final mobileNo = widget.ref.read(mobileProvider);
+        final profileRepo = ProfileRepository();
 
-        // Simulate existing user if mobile ends with even digit, new user if odd
-        final userExists =
-            int.tryParse(mobileNo[mobileNo.length - 1])! % 2 == 0;
+        final userExists = await authService.verifyOTPAndCheckUser(
+          ref: widget.ref,
+          otp: otp,
+          username: username,
+          mobileNo: mobileNo,
+        //  mobileNo: "9654120321",
+          profileRepo: profileRepo,
+        );
 
+        // ✅ Save with isProfileCompleted
         await _saveMobileNo(mobileNo, username, userExists);
 
-        Navigator.pop(context);
+        Navigator.pop(context); // close OTP dialog
+        print("User exists: $userExists");
 
         if (userExists) {
           context.go('/driverHome');
         } else {
           context.go(
             '/driverProfile',
-            extra: {'isNewUser': true}, // 👈 pass when new user
+            extra: {'isNewUser': true},
           );
         }
-      } else {
-        // Wrong OTP
+      } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Invalid OTP. Use 1234 for testing."),
+          SnackBar(
+            content: Text(e.toString()),
             backgroundColor: Colors.redAccent,
           ),
         );
       }
-
-      // -----------------------------
-      // Original API call (commented)
-      // -----------------------------
-      /*
-    try {
-      final username = widget.ref.read(usernameProvider);
-      final mobileNo = widget.ref.read(mobileProvider);
-      final profileRepo = ProfileRepository();
-
-      final userExists = await authService.verifyOTPAndCheckUser(
-        ref: widget.ref,
-        otp: otp,
-        username: username,
-        mobileNo: mobileNo,
-        profileRepo: profileRepo,
-      );
-
-      await _saveMobileNo(mobileNo, username, userExists);
-
-      Navigator.pop(context);
-
-      if (userExists) {
-        context.go('/driverHome');
-      } else {
-        context.go('/driverProfile');
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    }
-    */
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

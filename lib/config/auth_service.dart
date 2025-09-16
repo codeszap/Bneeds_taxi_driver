@@ -1,8 +1,11 @@
 import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bneeds_taxi_driver/repositories/profile_repository.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
+
+
+import '../repositories/profile_repository.dart';
 
 final generatedOtpProvider = StateProvider<String?>((ref) => null);
 
@@ -48,35 +51,11 @@ Future<void> sendOTP({
   }
 }
 
-/// Returns true if user exists, false if new user
-// Future<bool> verifyOTPAndCheckUser({
-//   required WidgetRef ref,
-//   required String otp,
-//   required String username, // unused
-//   required String mobileNo,
-//   required ProfileRepository profileRepo,
-// }) async {
-//   final generatedOtp = ref.read(generatedOtpProvider);
-
-//   if (generatedOtp == null) {
-//     throw Exception("No OTP generated");
-//   }
-
-//   if (otp != generatedOtp) {
-//     throw Exception("Invalid OTP");
-//   }
-
-//   // Fetch user profile from API
-//   final profiles = await profileRepo.fetchUserProfile(mobileno: mobileNo);
-//   print("Fetched profiles: ${profiles.map((p) => p.toJson()).toList()}");
-//   // If API returned empty list, user does not exist
-//   return profiles.isNotEmpty;
-// }
 
 Future<bool> verifyOTPAndCheckUser({
   required WidgetRef ref,
   required String otp,
-  required String username, // unused
+  required String username,
   required String mobileNo,
   required ProfileRepository profileRepo,
 }) async {
@@ -88,25 +67,32 @@ Future<bool> verifyOTPAndCheckUser({
 
   if (otp != generatedOtp) {
     throw Exception("Invalid OTP");
-  }
+  } 
 
-  // Fetch user profile from API
-  final profiles = await profileRepo.fetchUserProfile(mobileno: mobileNo);
-  print("Fetched profiles: ${profiles.map((p) => p.toJson()).toList()}");
+  try {
+    // fetch rider profiles as list
+    final riders = await profileRepo.getRiderLogin(mobileno: mobileNo);
 
-  if (profiles.isNotEmpty) {
-    // User exists, store userid in SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    final userId = profiles.first.userid; // assuming 'userid' exists
-    await prefs.setString('userid', userId);
-    await prefs.setBool(
-      'isProfileCompleted',
-      true,
-    ); // optional, if you track profile completion
-    print("Stored userid in session: $userId");
-    return true;
-  } else {
-    // User does not exist
+    if (riders.isNotEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = riders.first.userName;
+      final riderId = riders.first.riderId;
+      await prefs.setString('userid', userId);
+      await prefs.setString('mobno', mobileNo);
+      print("Storing userid in session: $userId");
+      print("Storing riderId in session: $riderId");
+      await prefs.setString('riderId', riderId);
+      await prefs.setBool('isProfileCompleted', true);
+
+      print("Stored userid in session: $userId");
+      return true;
+    }
+
+    // No rider found
+    return false;
+  } catch (e) {
+    print("Error fetching rider login: $e");
     return false;
   }
 }
+

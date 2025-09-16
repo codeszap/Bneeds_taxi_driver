@@ -48,25 +48,25 @@ final GoRouter router = GoRouter(
       },
     ),
 
-    GoRoute(
-      path: '/service-options',
-      builder: (context, state) {
-        final extra = state.extra;
-        if (extra is! Map<String, dynamic>) {
-          throw Exception('Expected a Map<String, dynamic> in state.extra');
-        }
+    // GoRoute(
+    //   path: '/service-options',
+    //   builder: (context, state) {
+    //     final extra = state.extra;
+    //     if (extra is! Map<String, dynamic>) {
+    //       throw Exception('Expected a Map<String, dynamic> in state.extra');
+    //     }
 
-        final vehTypeId = extra['vehTypeId'] as String;
-        final totalKms = extra['totalKms'].toString(); // ensure string
-        final estTime = extra['estTime'].toString();
+    //     final vehTypeId = extra['vehTypeId'] as String;
+    //     final totalKms = extra['totalKms'].toString(); // ensure string
+    //     final estTime = extra['estTime'].toString();
 
-        return ServiceOptionsScreen(
-          vehTypeId: vehTypeId,
-          totalKms: totalKms,
-          estTime: estTime,
-        );
-      },
-    ),
+    //     return ServiceOptionsScreen(
+    //       vehTypeId: vehTypeId,
+    //       totalKms: totalKms,
+    //       estTime: estTime,
+    //     );
+    //   },
+    // ),
 
     GoRoute(
       path: '/searching',
