@@ -149,17 +149,43 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: bgColor,
-        iconTheme: IconThemeData(color: textColor),
-        elevation: 0,
-        title: Text(
-          "Dashboard",
-          style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          Container(
-            padding: const EdgeInsets.all(2),
+      drawer: isProfileComplete ? CommonDrawer() : null,
+      body: Stack(
+        children: [
+          // Google Map
+          GoogleMap(
+            onMapCreated: (controller) => _mapController = controller,
+            initialCameraPosition: CameraPosition(
+              target: _currentLocation ?? const LatLng(12.9716, 77.5946),
+              zoom: 14,
+            ),
+            markers: _markers,
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+          ),
+
+          // Drawer button (hamburger icon)
+          Positioned(
+            top: 40,
+            left: 16,
+            child: Builder(
+              builder: (context) => InkWell(
+                onTap: () => Scaffold.of(context).openDrawer(),
+                borderRadius: BorderRadius.circular(30),
+                child: CircleAvatar(
+                  backgroundColor: bgColor,
+                  radius: 24, // adjust size as needed
+                  child: Icon(Icons.menu, color: textColor),
+                ),
+              ),
+            ),
+          ),
+
+
+          // Online/Offline toggle
+          Positioned(
+            top: 40,
+            right: 16,
             child: FlutterSwitch(
               width: 100,
               height: 35,
@@ -188,7 +214,6 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
                 final repo = ref.read(driverRepositoryProvider);
                 final prefs = await SharedPreferences.getInstance();
                 final riderId = prefs.getString('riderId') ?? "";
-                print("Updating status to $riderId");
 
                 final response = await repo.updateDriverStatus(
                   riderId: riderId,
@@ -198,13 +223,11 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
 
                 if (response.status == "success") {
                   ref.read(driverStatusProvider.notifier).state = newStatus;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        "Driver status updated: ${response.message}",
-                      ),
-                    ),
-                  );
+                  // ScaffoldMessenger.of(context).showSnackBar(
+                  //   SnackBar(
+                  //     content: Text("Driver status updated: ${response.message}"),
+                  //   ),
+                  // );
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("❌ ${response.message}")),
@@ -213,21 +236,8 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
               },
             ),
           ),
-        ],
-      ),
-      drawer: isProfileComplete ? CommonDrawer() : null,
-      body: Stack(
-        children: [
-          GoogleMap(
-            onMapCreated: (controller) => _mapController = controller,
-            initialCameraPosition: CameraPosition(
-              target: _currentLocation ?? const LatLng(12.9716, 77.5946),
-              zoom: 14,
-            ),
-            markers: _markers,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-          ),
+
+          // Current location button
           Positioned(
             right: 16,
             bottom: 180,
@@ -250,6 +260,7 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
           // Ride request popup
           if (rideRequest != null && status == "OL")
             _buildRideRequestCard(context, rideRequest),
+
           // Bottom panel
           if (rideRequest == null)
             Align(
@@ -273,38 +284,39 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
                 child: Center(
                   child: status == "OF"
                       ? const Text(
-                          "Switch to Online to receive rides",
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        )
+                    "Switch to Online to receive rides",
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  )
                       : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(
-                              Icons.local_taxi,
-                              size: 44,
-                              color: Colors.black,
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              "Waiting for ride requests...",
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ],
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(
+                        Icons.local_taxi,
+                        size: 44,
+                        color: Colors.black,
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        "Waiting for ride requests...",
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
                         ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
         ],
       ),
     );
+
   }
 
   Widget _buildRideRequestCard(BuildContext context, RideRequest rideRequest) {
