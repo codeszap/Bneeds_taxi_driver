@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart'; // for kDebugMode
 
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
@@ -15,10 +16,39 @@ class ApiClient {
       ),
     );
 
-    dio.interceptors.add(LogInterceptor(
-      request: true,
-      requestBody: true,
-      responseBody: true,
-    ));
+    // Custom Interceptor
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (kDebugMode) {
+            print("➡️ API Request: ${options.method} ${options.baseUrl}${options.path}");
+            if (options.data != null) print("📦 Body: ${options.data}");
+            if (options.queryParameters.isNotEmpty) {
+              print("🔍 Query: ${options.queryParameters}");
+            }
+          }
+          return handler.next(options);
+        },
+        onResponse: (response, handler) {
+          if (kDebugMode) {
+            print("✅ API Success: ${response.requestOptions.path}");
+            print("📥 Result: ${response.data}");
+            print("🔚 ------------------------------\n");
+          }
+          return handler.next(response);
+        },
+        onError: (DioError e, handler) {
+          if (kDebugMode) {
+            print("❌ API Error: ${e.requestOptions.path}");
+            print("⚠️ Message: ${e.message}");
+            if (e.response != null) {
+              print("📥 Error Response: ${e.response?.data}");
+            }
+            print("🔚 ------------------------------\n");
+          }
+          return handler.next(e);
+        },
+      ),
+    );
   }
 }

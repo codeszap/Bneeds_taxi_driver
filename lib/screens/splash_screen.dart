@@ -44,7 +44,7 @@ class _DriverSplashScreenState extends State<DriverSplashScreen> {
               Image.asset('assets/images/logo.png', width: 150, height: 150),
               const SizedBox(height: 20),
               const Text(
-                "Bneeds Taxi Driver",
+                "Ram Meter Driver",
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.bold,

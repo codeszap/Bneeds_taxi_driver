@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:bneeds_taxi_driver/providers/booking_provider.dart';
 import 'package:bneeds_taxi_driver/repositories/profile_repository.dart';
 import 'package:bneeds_taxi_driver/screens/OnTripScreen.dart';
@@ -31,8 +33,10 @@ class RideRequest {
   final String pickup;
   final String drop;
   final int fare;
-  final int bookingId; 
-  final String fcmToken; // Rider's FCM token
+  final int bookingId;
+  final String fcmToken;
+  final String pickuplatlong; // <-- must be String
+  final String droplatlong;   // <-- must be String
 
   RideRequest({
     required this.pickup,
@@ -40,8 +44,11 @@ class RideRequest {
     required this.fare,
     required this.bookingId,
     required this.fcmToken,
+    required this.pickuplatlong,
+    required this.droplatlong,
   });
 }
+
 
 class DriverHomeScreen extends ConsumerStatefulWidget {
   const DriverHomeScreen({super.key});
@@ -71,6 +78,8 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
         final vehicleTypeId =
             int.tryParse(message.data['vehTypeId'] ?? '0') ?? 0;
         final bookingId = int.tryParse(message.data['bookingId'] ?? '0') ?? 0;
+        final pickuplatlong = message.data['pickuplatlong'] ?? '' ?? 0;
+        final droplatlong = message.data['droplatlong'] ?? '' ?? 0;
 
         final status = ref.read(driverStatusProvider); // Check if Online
         if (status == "OL") {
@@ -78,6 +87,8 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
           ref.read(rideRequestProvider.notifier).state = RideRequest(
             pickup: pickup,
             drop: drop,
+            pickuplatlong: pickuplatlong.toString(),
+            droplatlong: droplatlong.toString(),
             fare: fare,
             bookingId: bookingId,
             fcmToken: message.data['token'] ?? '',
@@ -125,6 +136,30 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
       ),
     );
   }
+
+// Generate 4-digit OTP
+  String generateOtp() {
+    final random = Random();
+    int otp = 1000 + random.nextInt(9000); // ensures 1000-9999
+    return otp.toString();
+  }
+
+  LatLng parseLatLng(String latLongStr) {
+    // Example input: "Latitude: 9.931449, Longitude: 78.1098963"
+    final latMatch = RegExp(r'Latitude:\s*([-\d.]+)').firstMatch(latLongStr);
+    final lngMatch = RegExp(r'Longitude:\s*([-\d.]+)').firstMatch(latLongStr);
+
+    if (latMatch == null || lngMatch == null) {
+      throw FormatException("Invalid LatLong format: $latLongStr");
+    }
+
+    final lat = double.parse(latMatch.group(1)!);
+    final lng = double.parse(lngMatch.group(1)!);
+
+    return LatLng(lat, lng);
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -375,7 +410,8 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
                         final prefs = await SharedPreferences.getInstance();
                         final riderId = prefs.getString('riderId') ?? "";
                         prefs.setString('bookingId', rideRequest.bookingId.toString());
-
+                        print("Pickup LatLong: ${rideRequest.pickuplatlong}");
+                        print("Drop LatLong: ${rideRequest.droplatlong}");
                         final response = await repo.getAcceptBookingStatus(
                           rideRequest.bookingId,
                           int.parse(riderId),
@@ -397,10 +433,30 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
                           message: apiResp.message ?? 'Unknown error',
                         );
 
+
+
+
                         // ✅ If success, navigate and send push notification
                         if ((apiResp.status ?? '').toLowerCase() == 'success') {
+                          final pickupLatLng = parseLatLng(rideRequest.pickuplatlong);
+                          final dropLatLng = parseLatLng(rideRequest.droplatlong);
+                          final otp = generateOtp();
+                          ref.read(tripProvider.notifier).acceptRide(
+                            rideRequest.pickup,
+                            rideRequest.drop,
+                            rideRequest.fare,
+                            pickupLatLng,
+                            dropLatLng,
+                            otp,
+                            rideRequest.bookingId.toString(),
+                            rideRequest.fcmToken,
+                          );
+
+
                           ref.read(rideRequestProvider.notifier).state = null;
+
                           context.go('/trip');
+
 
                           // --- Send push notification to rider ---
                           final customerFcm = rideRequest.fcmToken;
@@ -413,10 +469,15 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
                               data: {
                                 "bookingId": rideRequest.bookingId.toString(),
                                 "status": "accepted",
+                                "otp": otp,
+                                "driverLatLong": _currentLocation != null
+                                    ? "${_currentLocation!.latitude},${_currentLocation!.longitude}"
+                                    : "",
                               },
                             );
                           }
                         }
+
                       } catch (e) {
                         await showApiResponseDialog(
                           context,

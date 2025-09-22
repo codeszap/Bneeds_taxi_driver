@@ -55,13 +55,14 @@ class TripCompleteScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      "Fare: ₹300",
+                      "Fare: ₹${trip.fare}", // dynamic fare
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
                         color: Colors.green,
                       ),
                     ),
+
                     const SizedBox(height: 8),
                     const Text(
                       "Payment: Cash",
@@ -81,19 +82,19 @@ class TripCompleteScreen extends ConsumerWidget {
                             CompleteBookingParams(bookingId, 10),
                           ).future,
                         );
-
-                        // asyncValue is List<ApiResponse>
-                        if (asyncValue.isNotEmpty &&
-                            asyncValue.first.status == 'success') {
-                          ref.read(tripProvider.notifier).reset();
-                          context.go('/driverHome');
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("❌ Failed to complete booking"),
-                            ),
-                          );
-                        }
+                        context.go('/driverHome');
+                        // // asyncValue is List<ApiResponse>
+                        // if (asyncValue.isNotEmpty &&
+                        //     asyncValue.first.status == 'success') {
+                        //   ref.read(tripProvider.notifier).reset();
+                        //   context.go('/driverHome');
+                        // } else {
+                        //   ScaffoldMessenger.of(context).showSnackBar(
+                        //     const SnackBar(
+                        //       content: Text("❌ Failed to complete booking"),
+                        //     ),
+                        //   );
+                        // }
                       },
 
                       style: ElevatedButton.styleFrom(
