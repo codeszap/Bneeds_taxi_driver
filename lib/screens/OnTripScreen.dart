@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:bneeds_taxi_driver/models/user_profile_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import '../repositories/profile_repository.dart';
 import '../services/FirebasePushService.dart';
 import 'TripCompleteScreen.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
@@ -22,8 +24,10 @@ class TripState {
   final int elapsedTime;
   final bool canCompleteTrip;
   final String otp;
-  final String fcmToken;      // ← add this
-  final String bookingId;     // ← add this
+  final String fcmToken;
+  final String bookingId;
+  final String userId; // ✅ stays here
+  final String cusMobile; // ✅ stays here
 
   TripState({
     this.pickup = '',
@@ -35,8 +39,10 @@ class TripState {
     this.elapsedTime = 0,
     this.canCompleteTrip = false,
     this.otp = '',
-    this.fcmToken = '',       // ← default
-    this.bookingId = '',      // ← default
+    this.fcmToken = '',
+    this.bookingId = '',
+    this.userId = '', // ✅ default
+    this.cusMobile = '', // ✅ default
   });
 
   TripState copyWith({
@@ -51,6 +57,8 @@ class TripState {
     String? otp,
     String? fcmToken,
     String? bookingId,
+    String? userId,
+    String? cusMobile,
   }) {
     return TripState(
       pickup: pickup ?? this.pickup,
@@ -64,10 +72,11 @@ class TripState {
       otp: otp ?? this.otp,
       fcmToken: fcmToken ?? this.fcmToken,
       bookingId: bookingId ?? this.bookingId,
+      userId: userId ?? this.userId,
+      cusMobile: cusMobile ?? this.cusMobile,
     );
   }
 }
-
 
 class TripNotifier extends StateNotifier<TripState> {
   Timer? _timer;
@@ -75,15 +84,17 @@ class TripNotifier extends StateNotifier<TripState> {
   TripNotifier() : super(TripState());
 
   void acceptRide(
-      String pickup,
-      String drop,
-      int fare,
-      LatLng pickupLatLng,
-      LatLng dropLatLng,
-      String otp,
-      String bookingId,
-      String fcmToken,
-      ) {
+    String pickup,
+    String drop,
+    int fare,
+    LatLng pickupLatLng,
+    LatLng dropLatLng,
+    String otp,
+    String bookingId,
+    String fcmToken,
+    String userId,
+    String cusMobile,
+  ) {
     state = TripState(
       pickup: pickup,
       drop: drop,
@@ -92,11 +103,12 @@ class TripNotifier extends StateNotifier<TripState> {
       dropLatLng: dropLatLng,
       status: TripStatus.accepted,
       otp: otp,
-      bookingId: bookingId,   // ← save bookingId
-      fcmToken: fcmToken,     // ← save fcmToken
+      bookingId: bookingId, // ← save bookingId
+      fcmToken: fcmToken, // ← save fcmToken
+      userId: userId,
+      cusMobile: cusMobile,
     );
   }
-
 
   void startAutoTrip() {
     state = state.copyWith(
@@ -118,8 +130,6 @@ class TripNotifier extends StateNotifier<TripState> {
     });
   }
 
-
-
   void completeTrip() async {
     // Generate random fare between 200 and 500
     final random = Random();
@@ -128,7 +138,7 @@ class TripNotifier extends StateNotifier<TripState> {
     // Update state with completed status and fare
     state = state.copyWith(
       status: TripStatus.completed,
-      fare: fareAmount,  // <-- here
+      fare: fareAmount, // <-- here
     );
 
     // Send push notification to customer
@@ -148,10 +158,6 @@ class TripNotifier extends StateNotifier<TripState> {
     }
   }
 
-
-
-
-
   void reset() {
     _timer?.cancel();
     state = TripState();
@@ -159,25 +165,30 @@ class TripNotifier extends StateNotifier<TripState> {
 }
 
 final tripProvider = StateNotifierProvider<TripNotifier, TripState>(
-      (ref) => TripNotifier(),
+  (ref) => TripNotifier(),
 );
 
 /// ------------------ OTP Dialog ------------------
 Future<void> showOtpDialog(
-    BuildContext context,
-    WidgetRef ref,
-    Function simulateTaxiMovement,
-    String realOtp,
-    String customerFcm,     // add customer FCM token
-    String bookingId, LatLng pickupLatLng, String pickup,       // add booking ID
-    ) async {
-
+  BuildContext context,
+  WidgetRef ref,
+  Function simulateTaxiMovement,
+  String realOtp,
+  String customerFcm, // add customer FCM token
+  String bookingId,
+  LatLng pickupLatLng,
+  String pickup, // add booking ID
+) async {
   const int otpLength = 4;
 
-  final List<TextEditingController> controllers =
-  List.generate(otpLength, (_) => TextEditingController());
-  final List<FocusNode> focusNodes =
-  List.generate(otpLength, (_) => FocusNode());
+  final List<TextEditingController> controllers = List.generate(
+    otpLength,
+    (_) => TextEditingController(),
+  );
+  final List<FocusNode> focusNodes = List.generate(
+    otpLength,
+    (_) => FocusNode(),
+  );
 
   bool isError = false;
 
@@ -215,7 +226,6 @@ Future<void> showOtpDialog(
             }
           }
 
-
           return AlertDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -250,7 +260,10 @@ Future<void> showOtpDialog(
                           counterText: '',
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: Colors.grey, width: 2),
+                            borderSide: const BorderSide(
+                              color: Colors.grey,
+                              width: 2,
+                            ),
                           ),
                         ),
                         onChanged: (value) {
@@ -301,6 +314,32 @@ class OnTripScreen extends ConsumerStatefulWidget {
 }
 
 class _OnTripScreenState extends ConsumerState<OnTripScreen> {
+  // Inside your ConsumerState<_OnTripScreenState>
+  UserProfile? userProfile;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchUserProfile();
+  }
+
+  Future<void> fetchUserProfile() async {
+    final trip = ref.read(tripProvider); // read current trip state
+    if (trip.cusMobile.isNotEmpty) {
+      final profileList = await ProfileRepository().getUserDetail(
+        mobileno: trip.cusMobile,
+      //  mobileno: "8870602962",
+      );
+
+      if (profileList.isNotEmpty) {
+        setState(() {
+          userProfile =
+              profileList[0]; // Already UserProfile, no fromJson needed
+        });
+      }
+    }
+  }
+
   GoogleMapController? _mapController;
   Marker taxiMarker = Marker(
     markerId: const MarkerId("taxi"),
@@ -308,7 +347,6 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
     icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
   );
   List<LatLng> polylineCoordinates = [];
-
 
   Future<void> getRoute(LatLng start, LatLng end) async {
     const String googleApiKey = "AIzaSyAWzUqf3Z8xvkjYV7F4gOGBBJ5d_i9HZhs";
@@ -320,7 +358,7 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
     final request = PolylineRequest(
       origin: PointLatLng(start.latitude, start.longitude),
       destination: PointLatLng(end.latitude, end.longitude),
-       mode: TravelMode.driving,
+      mode: TravelMode.driving,
     );
 
     // Get the route
@@ -338,8 +376,10 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
     }
   }
 
-
-  void simulateTaxiMovementAlongRoute(List<LatLng> routePoints, {int durationInSeconds = 10}) {
+  void simulateTaxiMovementAlongRoute(
+    List<LatLng> routePoints, {
+    int durationInSeconds = 10,
+  }) {
     if (routePoints.isEmpty) return;
 
     int steps = routePoints.length;
@@ -347,7 +387,7 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
 
     Timer.periodic(
       Duration(milliseconds: (durationInSeconds * 1000 ~/ steps)),
-          (timer) {
+      (timer) {
         if (currentStep >= steps) {
           timer.cancel();
           return;
@@ -357,7 +397,9 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
           taxiMarker = Marker(
             markerId: const MarkerId("taxi"),
             position: routePoints[currentStep],
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueGreen,
+            ),
           );
         });
         currentStep++;
@@ -370,10 +412,10 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
     final trip = ref.watch(tripProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("On Trip"),
-        backgroundColor: Colors.yellow,
-      ),
+      // appBar: AppBar(
+      //   title: const Text("On Trip"),
+      //   backgroundColor: Colors.yellow,
+      // ),
       body: Stack(
         children: [
           GoogleMap(
@@ -383,8 +425,14 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
             ),
             onMapCreated: (controller) => _mapController = controller,
             markers: {
-              Marker(markerId: const MarkerId("pickup"), position: trip.pickupLatLng),
-              Marker(markerId: const MarkerId("drop"), position: trip.dropLatLng),
+              Marker(
+                markerId: const MarkerId("pickup"),
+                position: trip.pickupLatLng,
+              ),
+              Marker(
+                markerId: const MarkerId("drop"),
+                position: trip.dropLatLng,
+              ),
               taxiMarker,
             },
             polylines: {
@@ -409,49 +457,103 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Pickup: ${trip.pickup}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text("Drop: ${trip.drop}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text("Fare: ₹${trip.fare}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    if (trip.status == TripStatus.onTrip)
-                      Text("Elapsed Time: ${trip.elapsedTime} sec", style: const TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    if (trip.status == TripStatus.accepted)
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                        onPressed: () async {
-                          await getRoute(trip.pickupLatLng, trip.dropLatLng); // fetch route
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // ---------------- Customer Info Card ----------------
+                      if (userProfile != null)
+                        Card(
+                          color: Colors.blue.shade50,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Customer Info",
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                                const SizedBox(height: 8),
+                                Text("Name: ${userProfile!.userName}"),
+                                Text("Mobile: ${userProfile!.mobileNo}"),
+                                Text("Address: ${userProfile!.address1}, ${userProfile!.address2}, ${userProfile!.city}"),
+                              ],
+                            ),
+                          ),
+                        ),
 
-                          await showOtpDialog(
-                            context,
-                            ref,
-                                () => simulateTaxiMovementAlongRoute(polylineCoordinates),
-                            trip.otp,
-                            trip.fcmToken,      
-                            trip.bookingId,  
-                            trip.pickupLatLng,
-                            trip.pickup
-                          );
-                        },
-                        child: const Text("Start Trip"),
+                      const SizedBox(height: 12),
+
+                      // ---------------- Trip Info Card ----------------
+                      Card(
+                        color: Colors.green.shade50,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Trip Info",
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                              const SizedBox(height: 8),
+                              Text("Pickup: ${trip.pickup}"),
+                              Text("Drop: ${trip.drop}"),
+                              Text("Fare: ₹${trip.fare}"),
+                              if (trip.status == TripStatus.onTrip)
+                                Text("Elapsed Time: ${trip.elapsedTime} sec"),
+                            ],
+                          ),
+                        ),
                       ),
 
+                      const SizedBox(height: 12),
 
-                    if (trip.status == TripStatus.onTrip && trip.canCompleteTrip)
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                        onPressed: () {
-                          ref.read(tripProvider.notifier).completeTrip();
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const TripCompleteScreen()));
-                        },
-                        child: const Text("Complete Trip"),
-                      ),
-                  ],
-                ),
+                      // ---------------- Action Buttons ----------------
+                      if (trip.status == TripStatus.accepted)
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                          onPressed: () async {
+                            await getRoute(trip.pickupLatLng, trip.dropLatLng);
+
+                            await showOtpDialog(
+                              context,
+                              ref,
+                                  () => simulateTaxiMovementAlongRoute(polylineCoordinates),
+                              trip.otp,
+                              userProfile?.tokenkey ?? '', // customer FCM token
+                              trip.bookingId,
+                              trip.pickupLatLng,
+                              trip.pickup,
+                            );
+                          },
+                          child: const Text("Start Trip"),
+                        ),
+
+                      if (trip.status == TripStatus.onTrip && trip.canCompleteTrip)
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                          onPressed: () {
+                            ref.read(tripProvider.notifier).completeTrip();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const TripCompleteScreen(),
+                              ),
+                            );
+                          },
+                          child: const Text("Complete Trip"),
+                        ),
+                    ],
+                  )
+
               ),
             ),
           ),

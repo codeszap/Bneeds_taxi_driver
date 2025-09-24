@@ -27,6 +27,7 @@ class _DriverSplashScreenState extends State<DriverSplashScreen> {
 
     if (isProfileComplete) {
       context.go("/driverHome");
+     // context.go("/trip");
     } else {
       context.go("/login");
     }
@@ -35,33 +36,38 @@ class _DriverSplashScreenState extends State<DriverSplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // <-- set white background
-      body: SafeArea(
-        child: Center(
+      backgroundColor: Colors.amberAccent,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset('assets/images/logo.png', width: 150, height: 150),
-              const SizedBox(height: 20),
+              Image.asset('assets/images/logo.png', width: 180, height: 180),
+              const SizedBox(height: 24),
+              // Text(
+              //   "Ram Meter Auto",
+              //   style: TextStyle(
+              //     fontSize: 32,
+              //     fontWeight: FontWeight.bold,
+              //     color: Colors.deepPurple.shade700,
+              //     letterSpacing: 1.2,
+              //   ),
+              // ),
+              // const SizedBox(height: 12),
               const Text(
-                "Ram Meter Driver",
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black, // <-- change to black
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                "Drive safe, smart & fast",
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey, // <-- dark grey for contrast
-                ),
+                "Get there fast, safe and smart.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.white),
               ),
               const SizedBox(height: 40),
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation(Colors.green), // better on white
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: const LinearProgressIndicator(
+                  minHeight: 6,
+                  valueColor: AlwaysStoppedAnimation(Colors.red),
+                  backgroundColor: Colors.black12,
+                ),
               ),
             ],
           ),

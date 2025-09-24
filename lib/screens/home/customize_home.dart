@@ -37,6 +37,8 @@ class RideRequest {
   final String fcmToken;
   final String pickuplatlong; // <-- must be String
   final String droplatlong;   // <-- must be String
+  final String cusMobile;
+  final String userId;
 
   RideRequest({
     required this.pickup,
@@ -46,6 +48,8 @@ class RideRequest {
     required this.fcmToken,
     required this.pickuplatlong,
     required this.droplatlong,
+    required this.cusMobile,
+    required this.userId,
   });
 }
 
@@ -68,21 +72,44 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
     super.initState();
     _getCurrentLocation();
 
-    // --- Listen for FCM ride requests ---
+    // restore saved driver status from SharedPreferences
+    _restoreDriverStatus();
+
+    // start FCM listener (moved out of inline initState)
+    _listenForFCMMessages();
+  }
+
+  // restore saved driver status (called from initState)
+  Future<void> _restoreDriverStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedStatus = prefs.getString("driverStatus") ?? "";
+
+      if (savedStatus.isNotEmpty) {
+        // update riverpod provider
+        ref.read(driverStatusProvider.notifier).state = savedStatus;
+      }
+    } catch (e) {
+      // optional: print or ignore
+      debugPrint("Failed to restore driver status: $e");
+    }
+  }
+
+// moved FCM listener into its own function
+  void _listenForFCMMessages() {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       if (message.data.isNotEmpty) {
         final pickup = message.data['pickup'] ?? '';
         final drop = message.data['drop'] ?? '';
         final fare = int.tryParse(message.data['fare'] ?? '0') ?? 0;
-        final customerToken = int.tryParse(message.data['token'] ?? '0') ?? 0;
-        final vehicleTypeId =
-            int.tryParse(message.data['vehTypeId'] ?? '0') ?? 0;
         final bookingId = int.tryParse(message.data['bookingId'] ?? '0') ?? 0;
-        final pickuplatlong = message.data['pickuplatlong'] ?? '' ?? 0;
-        final droplatlong = message.data['droplatlong'] ?? '' ?? 0;
+        final pickuplatlong = message.data['pickuplatlong'] ?? '';
+        final droplatlong = message.data['droplatlong'] ?? '';
+        final cusMobile = message.data['userMobNo'] ?? '';
+        final userId = message.data['userId'] ?? '';
 
         final status = ref.read(driverStatusProvider); // Check if Online
-        if (status == "OL") {
+        if (status == "OL") {     // Only show if driver is online
           // Update the provider to show popup
           ref.read(rideRequestProvider.notifier).state = RideRequest(
             pickup: pickup,
@@ -92,6 +119,8 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
             fare: fare,
             bookingId: bookingId,
             fcmToken: message.data['token'] ?? '',
+            cusMobile: cusMobile,
+            userId: userId,
           );
 
           // Play looping ringtone
@@ -101,6 +130,7 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
       }
     });
   }
+
 
   // ✅ Get Current Location & Show Marker
   Future<void> _getCurrentLocation() async {
@@ -237,38 +267,53 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
               inactiveText: "Offline",
               activeTextColor: Colors.white,
               inactiveTextColor: Colors.white,
-              onToggle: (val) async {
-                String newStatus = val ? "OL" : "OF";
+                onToggle: (val) async {
+                  String newStatus = val ? "OL" : "OF";
 
-                final position = await Geolocator.getCurrentPosition(
-                  desiredAccuracy: LocationAccuracy.high,
-                );
-                String fromLatLong =
-                    "${position.latitude},${position.longitude}";
-
-                final repo = ref.read(driverRepositoryProvider);
-                final prefs = await SharedPreferences.getInstance();
-                final riderId = prefs.getString('riderId') ?? "";
-
-                final response = await repo.updateDriverStatus(
-                  riderId: riderId,
-                  riderStatus: newStatus,
-                  fromLatLong: fromLatLong,
-                );
-
-                if (response.status == "success") {
-                  ref.read(driverStatusProvider.notifier).state = newStatus;
-                  // ScaffoldMessenger.of(context).showSnackBar(
-                  //   SnackBar(
-                  //     content: Text("Driver status updated: ${response.message}"),
-                  //   ),
-                  // );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("❌ ${response.message}")),
+                  // ✅ Play toggle sound
+                  await _audioPlayer.play(
+                    AssetSource(val ? 'sounds/on-off.mp3' : 'sounds/on-off.mp3'),
                   );
+
+                  // ✅ UI update immediately
+                  ref.read(driverStatusProvider.notifier).state = newStatus;
+
+                  // ✅ Background API + location update
+                  Future.microtask(() async {
+                    try {
+                      final position = await Geolocator.getCurrentPosition(
+                        desiredAccuracy: LocationAccuracy.high,
+                      );
+                      String fromLatLong = "${position.latitude},${position.longitude}";
+
+                      final repo = ref.read(driverRepositoryProvider);
+                      final prefs = await SharedPreferences.getInstance();
+                      final riderId = prefs.getString('riderId') ?? "";
+
+                      final response = await repo.updateDriverStatus(
+                        riderId: riderId,
+                        riderStatus: newStatus,
+                        fromLatLong: fromLatLong,
+                      );
+
+                      if (response.status == "success") {
+                        await prefs.setString("driverStatus", newStatus);
+                      } else {
+                        // rollback
+                        ref.read(driverStatusProvider.notifier).state = val ? "OF" : "OL";
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("❌ ${response.message}")),
+                        );
+                      }
+                    } catch (e) {
+                      ref.read(driverStatusProvider.notifier).state = val ? "OF" : "OL";
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Error: $e")),
+                      );
+                    }
+                  });
                 }
-              },
+
             ),
           ),
 
@@ -450,6 +495,8 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
                             otp,
                             rideRequest.bookingId.toString(),
                             rideRequest.fcmToken,
+                            rideRequest.userId,
+                            rideRequest.cusMobile,
                           );
 
 

@@ -63,11 +63,10 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
   void initState() {
     super.initState();
     _pageController = PageController();
-    final username = ref.read(usernameProvider);
-    final mobile = ref.read(mobileProvider);
 
-    nameController = TextEditingController(text: username);
-    mobNoController = TextEditingController(text: mobile);
+    // Initialize controllers
+    nameController = TextEditingController();
+    mobNoController = TextEditingController();
     dobController = TextEditingController();
     address1Controller = TextEditingController();
     address2Controller = TextEditingController();
@@ -81,44 +80,136 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
     insdateController = TextEditingController();
     genderValue = ValueNotifier<String>("M");
 
-    // Listeners to update save button state
-    nameController.addListener(_updateButtonState);
-    mobNoController.addListener(_updateButtonState);
-    dobController.addListener(_updateButtonState);
-    address1Controller.addListener(_updateButtonState);
-    address2Controller.addListener(_updateButtonState);
-    address3Controller.addListener(_updateButtonState);
-    cityController.addListener(_updateButtonState);
-    vehicleModelController.addListener(_updateButtonState);
-    vehicleNumberController.addListener(_updateButtonState);
-    licenseNumberController.addListener(_updateButtonState);
-    fcdateController.addListener(_updateButtonState);
-    insdateController.addListener(_updateButtonState);
+    // Add listeners
+    _addFieldListeners();
+
+    if (widget.isNewUser) {
+      _prefillNewUserFields();
+    } else {
+      _loadExistingUserProfile();
+    }
+  }
+
+  void _addFieldListeners() {
+    final controllers = [
+      nameController,
+      mobNoController,
+      dobController,
+      address1Controller,
+      address2Controller,
+      address3Controller,
+      cityController,
+      vehicleModelController,
+      vehicleNumberController,
+      licenseNumberController,
+      fcdateController,
+      insdateController,
+    ];
+
+    for (var ctrl in controllers) {
+      ctrl.addListener(_updateButtonState);
+    }
+  }
+
+  void _prefillNewUserFields() {
+    final username = ref.read(usernameProvider);
+    final mobile = ref.read(mobileProvider);
+
+    nameController.text = username;
+    mobNoController.text = mobile;
+  }
+
+  String formatDate(String dateStr) {
+    if (dateStr.isEmpty) return "";
+    try {
+      final parsed = DateFormat("M/d/yyyy h:mm:ss a").parse(dateStr);
+      return DateFormat("dd-MM-yyyy").format(parsed);
+    } catch (e) {
+      return "";
+    }
+  }
+
+
+  Future<void> _loadExistingUserProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final mobile = prefs.getString('driverMobile') ?? "";
+
+    if (mobile.isEmpty) return;
+
+    mobNoController.text = mobile;
+
+    try {
+      final profileList = await ProfileRepository().getRiderLogin(mobileno: mobile);
+
+      if (profileList.isEmpty) return;
+
+      final profile = profileList.first;
+
+      setState(() {
+        nameController.text = profile.riderName;
+        dobController.text = ""; // API does not return date of birth
+        address1Controller.text = profile.add1;
+        address2Controller.text = profile.add2;
+        address3Controller.text = profile.add3;
+        cityController.text = profile.city;
+        vehicleNumberController.text = profile.vehNo;
+        licenseNumberController.text = profile.licenseNo;
+        aadhaarNumberController.text = profile.adhaarNo;
+        fcdateController.text = formatDate(profile.fcDate);
+        insdateController.text = formatDate(profile.insDate);
+        genderValue.value = "M"; // Default since API has no gender
+        ref.read(selectedVehicleTypeProvider.notifier).state =
+        profile.vehTypeId.isNotEmpty ? int.tryParse(profile.vehTypeId) : null;
+      });
+
+      Future.delayed(const Duration(milliseconds: 300), () {
+        ref.read(selectedVehicleSubTypeProvider.notifier).state =
+        profile.vehSubTypeId.isNotEmpty ? int.tryParse(profile.vehSubTypeId) : null;
+      });
+
+    } catch (e) {
+      debugPrint("Failed to fetch profile: $e");
+    }
   }
 
   void _updateButtonState() {
     setState(() {
-      _isSaveEnabled = _isCurrentTabValid();
+      _isSaveEnabled = _areAllRequiredFieldsValid();
     });
   }
 
-  bool _isCurrentTabValid() {
-    switch (_currentIndex) {
-      case 0: // Personal Tab
-        return nameController.text.isNotEmpty &&
-            dobController.text.isNotEmpty &&
-            address1Controller.text.isNotEmpty &&
-            cityController.text.isNotEmpty;
-      case 1: // Vehicle Tab
-        return vehicleModelController.text.isNotEmpty &&
-            vehicleNumberController.text.isNotEmpty &&
-            licenseNumberController.text.isNotEmpty;
-      case 2: // Documents Tab
-        return true; // or add validation if needed
-      default:
-        return false;
-    }
+  /// Validate both personal info and vehicle info
+  bool _areAllRequiredFieldsValid() {
+    final isPersonalValid = nameController.text.isNotEmpty &&
+        dobController.text.isNotEmpty &&
+        address1Controller.text.isNotEmpty &&
+        cityController.text.isNotEmpty;
+
+    final isVehicleValid =
+        vehicleNumberController.text.isNotEmpty &&
+        licenseNumberController.text.isNotEmpty;
+
+    return isPersonalValid && isVehicleValid;
   }
+
+
+  // bool _isCurrentTabValid() {
+  //   switch (_currentIndex) {
+  //     case 0: // Personal Tab
+  //       return nameController.text.isNotEmpty &&
+  //           dobController.text.isNotEmpty &&
+  //           address1Controller.text.isNotEmpty &&
+  //           cityController.text.isNotEmpty;
+  //     case 1: // Vehicle Tab
+  //       return vehicleModelController.text.isNotEmpty &&
+  //           vehicleNumberController.text.isNotEmpty &&
+  //           licenseNumberController.text.isNotEmpty;
+  //     case 2: // Documents Tab
+  //       return true; // or add validation if needed
+  //     default:
+  //       return false;
+  //   }
+  // }
 
   Future<void> _pickDocument(String key) async {
     try {
@@ -182,7 +273,8 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
-    if (!_isCurrentTabValid()) return;
+    if (!_areAllRequiredFieldsValid()) return;
+
 
     final mobile = ref.read(mobileProvider);
     // Read selected type & subtype IDs
@@ -300,7 +392,7 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
     final tabs = [
       _personalTab(),
       _vehicleTab(vehicleTypesAsync, vehicleSubTypesAsync),
-      _documentsTab(),
+   //   _documentsTab(),
     ];
 
     return Scaffold(
@@ -413,10 +505,10 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
             icon: Icon(Icons.directions_car),
             label: "Vehicle",
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.upload_file),
-            label: "Documents",
-          ),
+          // BottomNavigationBarItem(
+          //   icon: Icon(Icons.upload_file),
+          //   label: "Documents",
+          // ),
         ],
       ),
     );

@@ -52,28 +52,6 @@ class ProfileRepository {
 
   }
 
-  /// Insert driver profile → return success message
-  // Future<ApiResponse> insertUserProfile(DriverProfile profile) async {
-  //   final url = "frmRiderProfileApi.aspx?action=I";
-  //   final body = {"RiderprofileDet": [profile.toJson()]};
-
-  //   try {
-  //     final response = await _dio.post(
-  //       url,
-  //       data: body,
-  //       options: Options(headers: {"Content-Type": "application/json"}),
-  //     );
-
-  //     final data = response.data is String ? jsonDecode(response.data) : response.data;
-  //     return ApiResponse.fromJson(data);
-  //   } on DioException catch (e) {
-  //     return ApiResponse(
-  //       status: "error",
-  //       message: e.response?.data.toString() ?? e.message ?? "Unknown error",
-  //     );
-  //   }
-  // }
-
   Future<ApiResponse> insertUserProfile(DriverProfile profile) async {
   final url = "frmRiderProfileApi.aspx?action=I";
   final body = {"RiderprofileDet": [profile.toJson()]};
@@ -149,5 +127,33 @@ final body = jsonEncode({
     );
   }
 }
+
+  Future<List<UserProfile>> getUserDetail({required String mobileno}) async {
+    final url = "frmUserProfileInsertApi.aspx?action=L&mobileno=$mobileno";
+
+    try {
+      final response = await _dio.get(url);
+
+      // முழு response data print பண்ண
+      print("Raw response: ${response.data}");
+
+      final data = response.data is String ? jsonDecode(response.data) : response.data;
+
+      // decode ஆனது print பண்ண
+      print("Decoded data: $data");
+
+      if (data['status'] == 'success' && data['data'] != null) {
+        final riders = List<Map<String, dynamic>>.from(data['data']);
+        return riders.map((r) => UserProfile.fromJson(r)).toList();
+      } else {
+        return [];
+      }
+    } on DioException catch (e) {
+      print("Error fetching rider login: ${e.response?.data ?? e.message}");
+      return [];
+    }
+
+  }
+
 
 }
