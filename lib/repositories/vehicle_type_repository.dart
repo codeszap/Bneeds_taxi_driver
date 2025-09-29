@@ -30,30 +30,6 @@ Future<List<VehicleTypeModel>> fetchVehicleTypes() async {
   return [];
 }
 
-
-// Future<List<VehicleSubType>> fetchVehicleSubTypes(String vehTypeId, String totalKms) async {
-//   final res = await _client.get(
-//     ApiEndpoints.vehicleSubType,
-//     queryParameters: {'action': 'D', 'VehTypeid': vehTypeId, 'TotalKms': totalKms},
-//   );
-
-//   dynamic data = res.data;
-//   if (data is String) {
-//     data = jsonDecode(data);
-//   }
-
-//   // Check for status first
-//   if (data is Map && data['status'] == 'success') {
-//     final list = data['data'];
-//     if (list is List) {
-//       return list.map((e) => VehicleSubType.fromJson(e)).toList();
-//     }
-//   }
-
-//   // If status != success or format invalid, return empty list
-//   return [];
-// }
-
 Future<List<VehicleSubType>> fetchVehicleSubTypes(int vehTypeId) async {
   final response = await _client.get('${ApiEndpoints.getVehicleSubType}&VehTypeid=$vehTypeId');
 
@@ -75,4 +51,42 @@ Future<List<VehicleSubType>> fetchVehicleSubTypes(int vehTypeId) async {
   // If status not success or data not list, return empty list
   return [];
 }
+
+  Future<double?> fetchFare({required String vehicleId, required double totalKm}) async {
+    try {
+      final response = await _client.get(
+        'https://www.bneedsbill.com/ramauto/Api/frmVehTariffApi.aspx',
+        queryParameters: {
+          'action': 'D',
+          'Totalkm': totalKm.toStringAsFixed(2),
+        },
+      );
+
+      dynamic resData = response.data;
+
+      // Decode if JSON string
+      if (resData is String) {
+        resData = jsonDecode(resData);
+      }
+
+      if (resData is Map && resData['status'] == 'success' && resData['data'] is List) {
+        final list = resData['data'] as List;
+
+        // Find matching vehicle ID
+        final vehicleData = list.firstWhere(
+              (e) => e['VehSubTypeid'].toString() == vehicleId,
+          orElse: () => null,
+        );
+
+        if (vehicleData != null && vehicleData['Totalkm'] != null && vehicleData['Totalkm'] != "") {
+          return double.parse(vehicleData['Totalkm'].toString());
+        }
+      }
+
+      return null; // if no match or API issue
+    } catch (e) {
+      print('Error fetching fare: $e');
+      return null;
+    }
+  }
 }

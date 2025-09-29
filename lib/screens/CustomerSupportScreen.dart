@@ -1,6 +1,5 @@
 import 'package:bneeds_taxi_driver/widgets/common_main_scaffold.dart';
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:bneeds_taxi_driver/utils/storage.dart';
 
 class CustomerSupportScreen extends StatelessWidget {
   const CustomerSupportScreen({super.key});
@@ -46,7 +45,7 @@ class CustomerSupportScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.buttonText,
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
@@ -94,17 +93,15 @@ class CustomerSupportScreen extends StatelessWidget {
                           );
 
                           Future.delayed(const Duration(seconds: 2), () {
-                          context.go(
-                          '/home', 
-                        );
+                            context.go(AppRoutes.driverHome);
                           });
                         },
-                        icon: const Icon(Icons.send, color: Colors.white),
+                        icon: const Icon(Icons.send, color: AppColors.buttonText),
                         label: const Text(
                           "Send",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: AppColors.buttonText,
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
@@ -145,9 +142,7 @@ class CustomerSupportScreen extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () {
-                       context.go(
-                          '/home', 
-                        );
+                        context.go(AppRoutes.driverHome);
                       },
                       icon: const Icon(Icons.chat, color: Colors.deepPurple),
                       label: const Text("whatsapp Chat"),

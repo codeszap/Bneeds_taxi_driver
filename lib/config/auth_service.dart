@@ -1,11 +1,7 @@
-import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bneeds_taxi_driver/utils/storage.dart';
 
-import 'package:shared_preferences/shared_preferences.dart';
-
-
-import '../repositories/profile_repository.dart';
 
 final generatedOtpProvider = StateProvider<String?>((ref) => null);
 
@@ -74,17 +70,10 @@ Future<bool> verifyOTPAndCheckUser({
     final riders = await profileRepo.getRiderLogin(mobileno: mobileNo);
 
     if (riders.isNotEmpty) {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = riders.first.userName;
-      final riderId = riders.first.riderId;
-      await prefs.setString('userid', userId);
-      await prefs.setString('mobno', mobileNo);
-      print("Storing userid in session: $userId");
-      print("Storing riderId in session: $riderId");
-      await prefs.setString('riderId', riderId);
-      await prefs.setBool('isProfileCompleted', true);
-
-      print("Stored userid in session: $userId");
+      await SharedPrefsHelper.setRiderId(riders.first.riderId);
+      await SharedPrefsHelper.setDriverMobile(mobileNo);
+      await SharedPrefsHelper.setBookingId(riders.first.userName);
+      await SharedPrefsHelper.setIsDriverProfileCompleted(true);
       return true;
     }
 

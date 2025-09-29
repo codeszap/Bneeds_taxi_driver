@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+
 class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final bool showBackButton;
@@ -23,7 +25,7 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
       elevation: 0,
       leading: showBackButton
           ? IconButton(
-              icon: const Icon(Icons.menu, color: Colors.white),
+              icon:  Icon(Icons.menu, color: AppColors.buttonText),
               onPressed: () {
                 Scaffold.of(context).openDrawer();
               },
@@ -33,7 +35,7 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
           ? Container(
               height: 42,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.buttonText,
                 borderRadius: BorderRadius.circular(30),
               ),
               child: TextField(
@@ -51,7 +53,7 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
           : Text(
               title,
               style: const TextStyle(
-                color: Colors.white,
+                color: AppColors.buttonText,
                 fontWeight: FontWeight.w600,
                 fontSize: 18,
               ),
@@ -60,7 +62,7 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
       actions: actions ??
           [
             IconButton(
-              icon: const Icon(Icons.notifications_none, color: Colors.white),
+              icon: const Icon(Icons.notifications_none, color: AppColors.buttonText),
               onPressed: () {},
             ),
           ],

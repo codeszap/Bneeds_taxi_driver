@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+
 class CommonButton extends StatelessWidget {
   final String text;
   final VoidCallback onPressed;
@@ -32,7 +34,7 @@ class CommonButton extends StatelessWidget {
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: backgroundColor ?? Theme.of(context).primaryColor,
-          foregroundColor: foregroundColor ?? Colors.white,
+          foregroundColor: foregroundColor ?? AppColors.buttonText,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
@@ -42,7 +44,7 @@ class CommonButton extends StatelessWidget {
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Colors.white,
+                  color: AppColors.buttonText,
                 ),
               )
             : Row(

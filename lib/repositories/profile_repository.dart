@@ -1,9 +1,5 @@
-import 'dart:convert';
-import 'package:bneeds_taxi_driver/core/api_client.dart';
-import 'package:bneeds_taxi_driver/core/api_endpoints.dart';
-import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../models/user_profile_model.dart';
+import 'package:bneeds_taxi_driver/utils/storage.dart';
+
 class ApiResponse {
   final String status;
   final String message;
@@ -66,8 +62,7 @@ class ProfileRepository {
     final data = response.data is String ? jsonDecode(response.data) : response.data;
 
     if (data["status"] == "success" && data["Riderid"] != null) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString("riderId", data["Riderid"].toString());
+      await SharedPrefsHelper.setRiderId(data["Riderid"].toString());
       print("✅ RiderId saved: ${data["Riderid"]}");
     }
 
@@ -79,6 +74,34 @@ class ProfileRepository {
     );
   }
 }
+  Future<ApiResponse> updateUserProfile(DriverProfile profile) async {
+    final url = "frmRiderProfileApi.aspx?action=E";
+    final body = {
+      "editriderpro": [profile.toJson()]
+    };
+
+    try {
+      print("🚀 Update API Call: $url");
+      print("📦 Body: $body");
+
+      final response = await _dio.post(
+        url,
+        data: body,
+        options: Options(headers: {"Content-Type": "application/json"}),
+      );
+
+      final data = response.data is String ? jsonDecode(response.data) : response.data;
+
+      return ApiResponse.fromJson(data);
+    } on DioException catch (e) {
+      print("❌ Update Error: ${e.response?.data ?? e.message}");
+      return ApiResponse(
+        status: "error",
+        message: e.response?.data.toString() ?? e.message ?? "Unknown error",
+      );
+    }
+  }
+
 
 
 Future<ApiResponse> updateDriverStatus({

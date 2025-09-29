@@ -1,18 +1,10 @@
-
-import 'dart:convert';
-
-import 'package:bneeds_taxi_driver/screens/SelectLocationScreen.dart';
-import 'package:bneeds_taxi_driver/utils/constants.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:bneeds_taxi_driver/utils/storage.dart';
+
+import '../screens/home/driver_location_service.dart';
 
 
-// Recent locations
-final recentLocationsProvider =
-    StateNotifierProvider<RecentLocationsNotifier, List<Map<String, String>>>(
-      (ref) => RecentLocationsNotifier(),
-    );
 // ---- Google Suggestions Provider ----
 final placeSuggestionsProvider = FutureProvider.family<List<String>, String>((
   ref,
@@ -66,3 +58,6 @@ final currentLocationProvider = FutureProvider<Position>((ref) async {
     desiredAccuracy: LocationAccuracy.high,
   );
 });
+
+
+

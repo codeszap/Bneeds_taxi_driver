@@ -1,38 +1,35 @@
-// import 'package:firebase_core/firebase_core.dart';
-import 'package:bneeds_taxi_driver/services/firebase_service.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'config/routes.dart';
+import 'package:bneeds_taxi_driver/utils/storage.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await initFirebaseMessaging();
   await requestNotificationPermissions();
-  runApp(ProviderScope(child: MyApp()));
-}
+  await SharedPrefsHelper.init();
+  await _initPermissions();
 
+  runApp(const ProviderScope(child: MyApp()));
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
-Widget build(BuildContext context) {
-  return MaterialApp.router(
-    routerConfig: router,
-    title: 'GoRouter Demo',
-    theme: ThemeData(
-      scaffoldBackgroundColor: Colors.white,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
-      primaryColor: Colors.white,
-      colorScheme: ColorScheme.fromSwatch().copyWith(
-        primary: Colors.black,
-        secondary: Colors.blue, 
-      ),
-    ),
-  );
-}
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      routerConfig: router,
+      title: Strings.appTitle,
+      theme: AppTheme.lightTheme,
+    );
+  }
 }
 
+Future<void> _initPermissions() async {
+  LocationPermission permission = await Geolocator.checkPermission();
+  if (permission == LocationPermission.denied) {
+    permission = await Geolocator.requestPermission();
+  }
+  if (permission == LocationPermission.deniedForever) {
+    // Prompt user to open settings
+  }
+}

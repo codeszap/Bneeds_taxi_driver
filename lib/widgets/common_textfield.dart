@@ -60,13 +60,13 @@ class _CommonTextFieldState extends State<CommonTextField> {
   Color _getTextColor() {
     final bg = widget.fillColor ?? AppColors.secondary.withOpacity(0.3);
     return bg.computeLuminance() < 0.5
-        ? Colors.white
+        ? AppColors.buttonText
         : AppColors.text.withOpacity(0.8);
   }
 
   Color _getLabelColor() {
     final bg = widget.fillColor ?? AppColors.secondary.withOpacity(0.3);
-    if (bg.computeLuminance() < 0.5) return Colors.white70;
+    if (bg.computeLuminance() < 0.5) return AppColors.buttonText;
     return widget.focusedBorderColor ?? AppColors.primary;
   }
 
@@ -93,7 +93,7 @@ class _CommonTextFieldState extends State<CommonTextField> {
         fillColor: widget.fillColor ?? AppColors.secondary.withOpacity(0.3),
         prefixIcon: widget.prefixIcon != null
             ? Icon(widget.prefixIcon,
-                color: widget.prefixIconColor ?? Colors.white70)
+                color: widget.prefixIconColor ?? AppColors.buttonText)
             : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
@@ -104,7 +104,7 @@ class _CommonTextFieldState extends State<CommonTextField> {
             color: widget.enabledBorderColor ??
                 (widget.fillColor != null &&
                         widget.fillColor!.computeLuminance() < 0.5
-                    ? Colors.white24
+                    ? AppColors.buttonText
                     : AppColors.primary.withOpacity(0.5)),
           ),
         ),

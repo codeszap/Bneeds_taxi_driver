@@ -1,6 +1,5 @@
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:bneeds_taxi_driver/utils/storage.dart';
+
 
 class DriverSplashScreen extends StatefulWidget {
   const DriverSplashScreen({super.key});
@@ -11,14 +10,30 @@ class DriverSplashScreen extends StatefulWidget {
 
 class _DriverSplashScreenState extends State<DriverSplashScreen> {
   @override
+  @override
   void initState() {
     super.initState();
     _checkRoute();
+    _initFCMToken();
+  }
+
+  Future<void> _initFCMToken() async {
+    try {
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken != null) {
+        await SharedPrefsHelper.setDriverFcmToken(fcmToken);
+        debugPrint("✅ FCM Token saved: $fcmToken");
+      } else {
+        debugPrint("⚠️ Failed to fetch FCM Token");
+      }
+    } catch (e) {
+      debugPrint("❌ Error getting FCM Token: $e");
+    }
   }
 
   Future<void> _checkRoute() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isProfileComplete = prefs.getBool("isDriverProfileCompleted") ?? false;
+    final isProfileComplete = SharedPrefsHelper.getDriverProfileCompleted();
+
 
     // Small delay so splash screen shows
     await Future.delayed(const Duration(seconds: 2));
@@ -26,10 +41,10 @@ class _DriverSplashScreenState extends State<DriverSplashScreen> {
     if (!mounted) return;
 
     if (isProfileComplete) {
-      context.go("/driverHome");
+    context.go(AppRoutes.driverHome);
      // context.go("/trip");
     } else {
-      context.go("/login");
+   context.go(AppRoutes.login);
     }
   }
 
@@ -43,30 +58,28 @@ class _DriverSplashScreenState extends State<DriverSplashScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset('assets/images/logo.png', width: 180, height: 180),
+              Image.asset(
+                Strings.logo,
+                width: 180,
+                height: 180,
+              ),
               const SizedBox(height: 24),
-              // Text(
-              //   "Ram Meter Auto",
-              //   style: TextStyle(
-              //     fontSize: 32,
-              //     fontWeight: FontWeight.bold,
-              //     color: Colors.deepPurple.shade700,
-              //     letterSpacing: 1.2,
-              //   ),
-              // ),
-              // const SizedBox(height: 12),
-              const Text(
+              Text(
                 "Get there fast, safe and smart.",
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.white),
+                style: AppTextStyles.bodyText.copyWith(
+                  color: AppColors.buttonText,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 40),
               Padding(
                 padding: const EdgeInsets.all(12.0),
                 child: const LinearProgressIndicator(
                   minHeight: 6,
-                  valueColor: AlwaysStoppedAnimation(Colors.red),
-                  backgroundColor: Colors.black12,
+                  valueColor: AlwaysStoppedAnimation(AppColors.error),
+                  backgroundColor: AppColors.background,
                 ),
               ),
             ],

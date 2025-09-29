@@ -3,6 +3,8 @@ import 'package:bneeds_taxi_driver/widgets/common_main_scaffold.dart';
 import 'package:bneeds_taxi_driver/widgets/common_main_scaffold.dart';
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+
 class WalletScreen extends StatelessWidget {
   const WalletScreen({super.key});
 
@@ -32,16 +34,16 @@ class WalletScreen extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                   Text(
                     "Wallet Balance",
-                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                    style: TextStyle(color: AppColors.buttonText, fontSize: 16),
                   ),
                   Text(
                     "₹${balance.toStringAsFixed(2)}",
                     style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: AppColors.buttonText,
                     ),
                   ),
                 ],
@@ -61,7 +63,7 @@ class WalletScreen extends StatelessWidget {
                 label: const Text("Add Money"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.deepPurple,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppColors.buttonText,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -94,7 +96,7 @@ class WalletScreen extends StatelessWidget {
                     margin: const EdgeInsets.symmetric(vertical: 6),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.buttonText,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(

@@ -1,12 +1,6 @@
-import 'dart:async';
 import 'package:bneeds_taxi_driver/config/auth_service.dart' as authService;
-import 'package:bneeds_taxi_driver/repositories/profile_repository.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../theme/app_colors.dart';
-import 'login_screen.dart';
+import 'package:bneeds_taxi_driver/utils/storage.dart';
 
 class OTPDialog extends StatefulWidget {
   final WidgetRef ref;
@@ -60,10 +54,9 @@ class _OTPDialogState extends State<OTPDialog> {
     String username,
     bool isProfileCompleted,
   ) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('driverMobileNo', mobileno);
-    await prefs.setString('driverUsername', username);
-    await prefs.setBool('isDriverProfileCompleted', isProfileCompleted);
+    await SharedPrefsHelper.setDriverMobile(mobileno);
+    await SharedPrefsHelper.setDriverUsername(username);
+    await SharedPrefsHelper.setDriverProfileCompleted(isProfileCompleted);
   }
 
   void _submitOTP() async {
@@ -90,10 +83,10 @@ class _OTPDialogState extends State<OTPDialog> {
         print("User exists: $userExists");
 
         if (userExists) {
-          context.go('/driverHome');
+          context.go(AppRoutes.driverHome);
         } else {
           context.go(
-            '/driverProfile',
+            AppRoutes.driverProfile,
             extra: {'isNewUser': true},
           );
         }
@@ -115,7 +108,7 @@ class _OTPDialogState extends State<OTPDialog> {
     final seconds = (_secondsRemaining % 60).toString().padLeft(2, '0');
 
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.buttonText,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
@@ -147,7 +140,7 @@ class _OTPDialogState extends State<OTPDialog> {
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: AppColors.buttonText,
                       ),
                       decoration: InputDecoration(
                         counterText: '',
@@ -155,7 +148,7 @@ class _OTPDialogState extends State<OTPDialog> {
                         fillColor: Colors.black,
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white24),
+                          borderSide: BorderSide(color: AppColors.buttonText),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),

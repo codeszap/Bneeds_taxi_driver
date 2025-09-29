@@ -1,7 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:googleapis_auth/auth_io.dart' as auth;
 import 'package:http/http.dart' as http;
+import 'package:bneeds_taxi_driver/utils/storage.dart';
 
 class FirebasePushService {
   static const _scopes = ['https://www.googleapis.com/auth/firebase.messaging'];
@@ -10,7 +10,7 @@ class FirebasePushService {
   static Future<String> _getAccessToken() async {
     // Load your service account JSON
     final accountCredentials = auth.ServiceAccountCredentials.fromJson(
-      jsonDecode(await rootBundle.loadString('assets/service-account.json')),
+      jsonDecode(await rootBundle.loadString(Strings.serviceAccount)),
     );
 
     final client = await auth.clientViaServiceAccount(accountCredentials, _scopes);

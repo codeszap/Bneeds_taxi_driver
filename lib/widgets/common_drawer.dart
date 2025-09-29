@@ -1,20 +1,23 @@
-import 'package:bneeds_taxi_driver/providers/driverStatusProvider.dart';
-import 'package:bneeds_taxi_driver/providers/profile_provider.dart';
-import 'package:bneeds_taxi_driver/screens/ProfileScreen.dart';
-import 'package:flutter/material.dart';
+import 'package:bneeds_taxi_driver/utils/storage.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+
+
 
 class CommonDrawer extends ConsumerWidget {
   const CommonDrawer({super.key});
 
   Future<Map<String, String>> _loadSessionData() async {
-    final prefs = await SharedPreferences.getInstance();
     return {
-      "username": prefs.getString('userid') ?? "Guest",
-      "mobileno": prefs.getString('mobno') ?? "N/A",
+      "username": SharedPrefsHelper.getDriverName().isNotEmpty
+          ? SharedPrefsHelper.getDriverName()
+          : "Guest",
+      "mobileno": SharedPrefsHelper.getDriverMobile().isNotEmpty
+          ? SharedPrefsHelper.getDriverMobile()
+          : "N/A",
     };
+
   }
 
   @override
@@ -25,14 +28,14 @@ class CommonDrawer extends ConsumerWidget {
     Color bgColor;
     Color textColor;
     if (status == "OL") {
-      bgColor = Colors.yellow;
+      bgColor = Colors.green;
       textColor = Colors.black;
     } else if (status == "RB") {
       bgColor = Colors.green;
-      textColor = Colors.white;
+      textColor = AppColors.buttonText;
     } else {
       bgColor = Colors.red;
-      textColor = Colors.white;
+      textColor = AppColors.buttonText;
     }
 
     return Drawer(
@@ -46,7 +49,7 @@ class CommonDrawer extends ConsumerWidget {
                   padding: const EdgeInsets.all(20),
                   color: bgColor,
                   child: const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
+                    child: CircularProgressIndicator(color: AppColors.buttonText),
                   ),
                 );
               }
@@ -62,7 +65,7 @@ class CommonDrawer extends ConsumerWidget {
                       children: [
                         CircleAvatar(
                           radius: 30,
-                          backgroundColor: Colors.white,
+                          backgroundColor: AppColors.buttonText,
                           child: const Icon(Icons.person, size: 30, color: Colors.black),
                         ),
                         const SizedBox(width: 16),
@@ -154,13 +157,12 @@ class CommonDrawer extends ConsumerWidget {
                 ),
               ),
               onPressed: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.clear();
+                await SharedPrefsHelper.clearAll();
 
                 if (context.mounted) {
                   final container = ProviderScope.containerOf(context);
                   container.invalidate(fetchProfileProvider);
-                  context.go('/login');
+                 context.go(AppRoutes.login);
                 }
               },
             ),

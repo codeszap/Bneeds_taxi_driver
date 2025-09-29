@@ -1,110 +1,77 @@
-import 'package:bneeds_taxi_driver/config/RouteDecider.dart';
-import 'package:bneeds_taxi_driver/screens/CustomerSupportScreen.dart';
-import 'package:bneeds_taxi_driver/screens/DriverSearchingScreen.dart';
-import 'package:bneeds_taxi_driver/screens/MyRidesScreen.dart';
-import 'package:bneeds_taxi_driver/screens/OnTripScreen.dart';
-import 'package:bneeds_taxi_driver/screens/ProfileScreen.dart';
-import 'package:bneeds_taxi_driver/screens/RideCompleteScreen.dart';
-import 'package:bneeds_taxi_driver/screens/RideOnTripScreen.dart';
-import 'package:bneeds_taxi_driver/screens/SelectLocationScreen.dart';
-import 'package:bneeds_taxi_driver/screens/SelectOnMapScreen.dart';
-import 'package:bneeds_taxi_driver/screens/ServiceOptionsScreen.dart';
-import 'package:bneeds_taxi_driver/screens/TrackingScreen.dart';
-import 'package:bneeds_taxi_driver/screens/WalletScreen.dart';
-import 'package:flutter/widgets.dart';
-import 'package:go_router/go_router.dart';
+import 'package:bneeds_taxi_driver/utils/storage.dart';
 import '../screens/home/customize_home.dart';
-import '../screens/login/login_screen.dart';
-import '../screens/splash_screen.dart';
+
+class AppRoutes {
+  // Paths
+  static const String decider = '/decider';
+  static const String splash = '/splash';
+  static const String login = '/login';
+  static const String driverHome = '/driverHome';
+  static const String tracking = '/tracking';
+  static const String wallet = '/wallet';
+  static const String customerSupport = '/customer-support';
+  static const String driverProfile = '/driverProfile';
+  static const String trip = '/trip';
+  static const String tripComplete = '/tripComplete';
+
+  // Screens (optional, if you want central reference)
+  static Widget deciderScreen() => const RouteDecider();
+  static Widget splashScreen() => const DriverSplashScreen();
+  static Widget loginScreen() => const DriverLoginScreen();
+  static Widget homeScreen() => const DriverHomeScreen();
+  static Widget walletScreen() => const WalletScreen();
+  static Widget customerSupportScreen() => const CustomerSupportScreen();
+  static Widget driverProfileScreen({bool isNewUser = false}) =>
+      DriverProfileScreen(isNewUser: isNewUser);
+  static Widget tripScreen() => const OnTripScreen();
+  static Widget tripCompleteScreen() => const TripCompleteScreen();
+}
+
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 final GoRouter router = GoRouter(
-   navigatorKey: navigatorKey,
-  initialLocation: '/splash',
+  navigatorKey: navigatorKey,
+  initialLocation: AppRoutes.splash,
   routes: [
     GoRoute(
-      path: '/decider',
-      builder: (context, state) => const RouteDecider(),
-    ),
-    GoRoute(path: '/', builder: (context, state) => const DriverSplashScreen()),
-    GoRoute(
-      path: '/splash',
-      builder: (context, state) => const DriverSplashScreen(),
+      path: AppRoutes.decider,
+      builder: (context, state) => AppRoutes.deciderScreen(),
     ),
     GoRoute(
-      path: '/login',
-      builder: (context, state) => const DriverLoginScreen(),
-    ),
-    //  GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
-    GoRoute(
-      path: '/driverHome',
-      builder: (context, state) => const DriverHomeScreen(),
+      path: AppRoutes.splash,
+      builder: (context, state) => AppRoutes.splashScreen(),
     ),
     GoRoute(
-      path: '/select-location',
+      path: AppRoutes.login,
+      builder: (context, state) => AppRoutes.loginScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.driverHome,
+      builder: (context, state) => AppRoutes.homeScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.wallet,
+      builder: (context, state) => AppRoutes.walletScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.customerSupport,
+      builder: (context, state) => AppRoutes.customerSupportScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.driverProfile,
       builder: (context, state) {
-        final vehTypeId = state.extra as String;
-        return SelectLocationScreen(vehTypeId: vehTypeId);
+        final extra = state.extra as Map<String, dynamic>?;
+        final isNewUser = extra?['isNewUser'] ?? false;
+        return AppRoutes.driverProfileScreen(isNewUser: isNewUser);
       },
     ),
-
-    // GoRoute(
-    //   path: '/service-options',
-    //   builder: (context, state) {
-    //     final extra = state.extra;
-    //     if (extra is! Map<String, dynamic>) {
-    //       throw Exception('Expected a Map<String, dynamic> in state.extra');
-    //     }
-
-    //     final vehTypeId = extra['vehTypeId'] as String;
-    //     final totalKms = extra['totalKms'].toString(); // ensure string
-    //     final estTime = extra['estTime'].toString();
-
-    //     return ServiceOptionsScreen(
-    //       vehTypeId: vehTypeId,
-    //       totalKms: totalKms,
-    //       estTime: estTime,
-    //     );
-    //   },
-    // ),
-
     GoRoute(
-      path: '/searching',
-      builder: (context, state) => const DriverSearchingScreen(),
+      path: AppRoutes.trip,
+      builder: (context, state) => AppRoutes.tripScreen(),
     ),
     GoRoute(
-      path: '/tracking',
-      builder: (context, state) => const TrackingScreen(),
+      path: AppRoutes.tripComplete,
+      builder: (context, state) => AppRoutes.tripCompleteScreen(),
     ),
-    GoRoute(path: '/wallet', builder: (context, state) => const WalletScreen()),
-    GoRoute(
-      path: '/select-on-map',
-      builder: (context, state) => const SelectOnMapScreen(),
-    ),
-    GoRoute(
-      path: '/ride-on-trip',
-      builder: (context, state) => const RideOnTripScreen(),
-    ),
-    GoRoute(
-      path: '/ride-complete',
-      builder: (context, state) => const RideCompleteScreen(),
-    ),
-    GoRoute(
-      path: '/customer-support',
-      builder: (context, state) => const CustomerSupportScreen(),
-    ),
-    GoRoute(
-      path: '/my-rides',
-      builder: (context, state) => const MyRidesScreen(),
-    ),
-    GoRoute(
-      path: '/driverProfile',
-      builder: (context, state) {
-        final extra = state.extra as Map<String, dynamic>?; // 👈 check extra
-        final isNewUser = extra?['isNewUser'] ?? false; // 👈 default false
-        return DriverProfileScreen(isNewUser: isNewUser); // 👈 pass flag
-      },
-    ),
-    GoRoute(path: '/trip', builder: (context, state) => const OnTripScreen()),
   ],
 );

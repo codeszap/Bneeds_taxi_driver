@@ -1,22 +1,7 @@
-import 'dart:io';
-
-import 'package:bneeds_taxi_driver/models/vehicle_subtype_model.dart';
-import 'package:bneeds_taxi_driver/models/vehicle_type_model.dart';
-import 'package:bneeds_taxi_driver/providers/vehicle_subtype_provider.dart';
-import 'package:bneeds_taxi_driver/providers/vehicle_type_provider.dart';
-import 'package:bneeds_taxi_driver/screens/login/login_screen.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../repositories/profile_repository.dart';
-import '../widgets/common_textfield.dart';
-import '../widgets/common_drawer.dart';
-import '../models/user_profile_model.dart';
-import '../providers/profile_provider.dart';
-import 'package:go_router/go_router.dart';
+import 'package:bneeds_taxi_driver/utils/storage.dart';
+
 
 final documentProvider = StateProvider<Map<String, File?>>((ref) => {});
 
@@ -131,8 +116,7 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
 
 
   Future<void> _loadExistingUserProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    final mobile = prefs.getString('driverMobile') ?? "";
+    final mobile = SharedPrefsHelper.getDriverMobile();
 
     if (mobile.isEmpty) return;
 
@@ -147,7 +131,7 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
 
       setState(() {
         nameController.text = profile.riderName;
-        dobController.text = ""; // API does not return date of birth
+        dobController.text = formatDate(profile.dateOfBirth);
         address1Controller.text = profile.add1;
         address2Controller.text = profile.add2;
         address3Controller.text = profile.add3;
@@ -158,9 +142,21 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
         fcdateController.text = formatDate(profile.fcDate);
         insdateController.text = formatDate(profile.insDate);
         genderValue.value = "M"; // Default since API has no gender
+
+        // ✅ Safe assignment
         ref.read(selectedVehicleTypeProvider.notifier).state =
-        profile.vehTypeId.isNotEmpty ? int.tryParse(profile.vehTypeId) : null;
+        (profile.vehTypeId.isNotEmpty && profile.vehTypeId != "0")
+            ? int.tryParse(profile.vehTypeId)
+            : null;
       });
+
+      Future.delayed(const Duration(milliseconds: 300), () {
+        ref.read(selectedVehicleSubTypeProvider.notifier).state =
+        (profile.vehSubTypeId.isNotEmpty && profile.vehSubTypeId != "0")
+            ? int.tryParse(profile.vehSubTypeId)
+            : null;
+      });
+
 
       Future.delayed(const Duration(milliseconds: 300), () {
         ref.read(selectedVehicleSubTypeProvider.notifier).state =
@@ -275,32 +271,30 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
   Future<void> _saveProfile() async {
     if (!_areAllRequiredFieldsValid()) return;
 
-
     final mobile = ref.read(mobileProvider);
-    // Read selected type & subtype IDs
     final selectedVehTypeId = ref.read(selectedVehicleTypeProvider);
     final selectedVehicleSubTypeId = ref.read(selectedVehicleSubTypeProvider);
 
-    // riderId
-
-    // final profile = await DriverRepository.insertDriverProfile(
-    //   riderName: nameController.text,
-    //   userName: usernameController.text,
-    //   password: passwordController.text,
-    //   mobileNo: mobileController.text,
-    //   vehtypeid: selectedVehicleTypeId,
-    //   vehsubTypeid: selectedVehicleSubTypeId,
-    //   vehNo: vehicleNumberController.text,
-    //   fcDate: fcDateController.text,
-    //   insDate: insDateController.text,
-    //   tokenKey: fcmToken ?? '',
-    // );
-
-    final prefs = await SharedPreferences.getInstance();
-    final riderId = prefs.getString('riderId') ?? "";
-
+    final riderId = SharedPrefsHelper.getRiderId();
     final fcmToken = await FirebaseMessaging.instance.getToken();
-    print("Driver FCM Token: $fcmToken");
+    print("---->>>>>Driver FCM Token: $fcmToken");
+
+    // Fetch vehicle type/sub-type names
+    final vehicleTypes = ref.read(vehicleTypesProvider).value ?? [];
+    final vehicleSubTypes = selectedVehTypeId == null
+        ? []
+        : ref.read(vehicleSubTypesProvider(selectedVehTypeId)).value ?? [];
+
+    final selectedVehTypeName = vehicleTypes.firstWhere(
+          (type) => type.vehTypeid == selectedVehTypeId?.toString(),
+      orElse: () => VehicleTypeModel(vehTypeid: "", vehTypeName: ""),
+    ).vehTypeName;
+
+    final selectedVehSubTypeName = vehicleSubTypes.firstWhere(
+          (sub) => int.parse(sub.vehSubTypeId) == selectedVehicleSubTypeId,
+      orElse: () => VehicleSubType(vehSubTypeId: "0", vehSubTypeName: ""),
+    ).vehSubTypeName;
+
     final profile = DriverProfile(
       riderId: riderId,
       riderName: nameController.text,
@@ -308,66 +302,74 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
       password: "12345",
       mobileNo: mobNoController.text,
       gender: genderValue.value,
-      //  // dateOfBirth: dobController.text,
-    // dateOfBirth: "2000-01-01",
-        dateOfBirth: dobController.text.isNotEmpty
-      ? DateFormat("dd-MM-yyyy").parse(dobController.text).toIso8601String().split('T')[0]
-      : "",
+      dateOfBirth: dobController.text.isNotEmpty
+          ? DateFormat("dd-MM-yyyy").parse(dobController.text).toIso8601String().split('T')[0]
+          : "",
       add1: address1Controller.text,
       add2: address2Controller.text,
       add3: address3Controller.text,
       city: cityController.text,
       vehTypeId: selectedVehTypeId?.toString() ?? "",
+      Vehtypename: selectedVehTypeName,       // ✅ Send type name
       vehSubTypeId: selectedVehicleSubTypeId?.toString() ?? "",
+      VehsubTypename: selectedVehSubTypeName, // ✅ Send sub-type name
       vehNo: vehicleNumberController.text,
-      // fcDate: fcdateController.text,
-      // insDate: insdateController.text,
-      // insDate: "2005-01-01",
-      // fcDate: "2005-01-01",
-        fcDate: fcdateController.text.isNotEmpty
-      ? DateFormat("dd-MM-yyyy").parse(fcdateController.text).toIso8601String().split('T')[0]
-      : "",
-        insDate: insdateController.text.isNotEmpty
-      ? DateFormat("dd-MM-yyyy").parse(insdateController.text).toIso8601String().split('T')[0]
-      : "",
+      fcDate: fcdateController.text.isNotEmpty
+          ? DateFormat("dd-MM-yyyy").parse(fcdateController.text).toIso8601String().split('T')[0]
+          : "",
+      insDate: insdateController.text.isNotEmpty
+          ? DateFormat("dd-MM-yyyy").parse(insdateController.text).toIso8601String().split('T')[0]
+          : "",
       tokenKey: fcmToken ?? "",
       licenseNo: licenseNumberController.text,
       adhaarNo: aadhaarNumberController.text,
     );
 
-    final message = await ProfileRepository().insertUserProfile(profile);
-
-    // print("Insert response: ${message.status}, ${message.message}");
-
     try {
-      //await ref.read(insertProfileProvider(profile).future);
-
-      // Get FCM token
-
-      // Save profile + token in SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('isDriverProfileCompleted', true);
-      await prefs.setString('driverName', nameController.text);
-      await prefs.setString('driverMobile', mobile);
-      await prefs.setString('driverCity', cityController.text);
-      // await prefs.setString('riderId', message.data.i ?? "");
-
-      if (fcmToken != null) {
-        await prefs.setString('driverFcmToken', fcmToken);
+      ApiResponse message;
+      if (riderId == null || riderId.isEmpty) {
+        /// 👉 New user → INSERT
+        message = await ProfileRepository().insertUserProfile(profile);
+      } else {
+        /// 👉 Existing user → UPDATE
+        message = await ProfileRepository().updateUserProfile(profile);
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile saved successfully')),
-      );
+      if (message.status == "success") {
+        await SharedPrefsHelper.setDriverName(nameController.text);
+        await SharedPrefsHelper.setDriverMobile(mobile);
+        await SharedPrefsHelper.setDriverCity(cityController.text);
+        await SharedPrefsHelper.setIsDriverProfileCompleted(true);
 
-      // Navigate to home
-      context.go('/driverHome');
+
+        if (selectedVehTypeId != null) {
+          await SharedPrefsHelper.setDriverVehicleTypeId(selectedVehTypeId.toString());
+        }
+        if (selectedVehicleSubTypeId != null) {
+          await SharedPrefsHelper.setDriverVehicleSubTypeId(selectedVehicleSubTypeId.toString());
+        }
+
+        if (fcmToken != null) {
+          await SharedPrefsHelper.setDriverFcmToken(fcmToken);
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile saved successfully')),
+        );
+
+        context.go(AppRoutes.driverHome);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: ${message.message}')),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to save profile: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save profile: $e')),
+      );
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -396,15 +398,15 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8F8),
-      drawer: widget.isNewUser ? null : CommonDrawer(),
+        backgroundColor: AppColors.background,
+        drawer: widget.isNewUser ? null : CommonDrawer(),
       appBar: AppBar(
         title: const Text(
           "Driver Profile",
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+          style: TextStyle(color: AppColors.buttonText, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFFFFD700),
-        foregroundColor: Colors.black87,
+        backgroundColor:  AppColors.amber,
+        foregroundColor: AppColors.buttonText,
       ),
       body: Column(
         children: [
@@ -420,8 +422,8 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: _currentIndex == index
-                      ? const Color(0xFFFFD700)
-                      : Colors.grey[400],
+                      ?  AppColors.primary
+                      : AppColors.secondary,
                 ),
               );
             }),
@@ -452,8 +454,8 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               decoration: BoxDecoration(
                 color: _isSaveEnabled
-                    ? const Color(0xFFFFD700)
-                    : Colors.grey[400],
+                    ?  AppColors.success
+                    : AppColors.icon,
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: _isSaveEnabled
                     ? [
@@ -468,12 +470,12 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: const [
-                  Icon(Icons.save, color: Colors.black87),
+                  Icon(Icons.save,  color: AppColors.buttonText,),
                   SizedBox(width: 8),
                   Text(
                     "Save Profile",
                     style: TextStyle(
-                      color: Colors.black87,
+                      color: AppColors.buttonText,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),
@@ -485,10 +487,10 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.buttonText,
         currentIndex: _currentIndex,
-        selectedItemColor: const Color(0xFFFFD700),
-        unselectedItemColor: Colors.grey[600],
+        selectedItemColor:  AppColors.primary,
+        unselectedItemColor: AppColors.icon,
         onTap: (index) {
           setState(() {
             _currentIndex = index;
@@ -519,7 +521,7 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
       padding: const EdgeInsets.symmetric(vertical: 20),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.buttonText,
           borderRadius: BorderRadius.circular(16),
           boxShadow: const [
             BoxShadow(
@@ -543,20 +545,20 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
           label: "Full Name",
           controller: nameController,
           prefixIcon: Icons.person,
-          prefixIconColor: Colors.grey[600],
-          fillColor: Colors.white,
-          focusedBorderColor: Colors.blueGrey,
-          enabledBorderColor: Colors.grey[400],
+          prefixIconColor: AppColors.icon,
+          fillColor: AppColors.buttonText,
+          focusedBorderColor: AppColors.text,
+          enabledBorderColor: AppColors.secondary,
         ),
         const SizedBox(height: 16),
         CommonTextField(
           label: "Mobile No",
           controller: mobNoController,
           prefixIcon: Icons.phone_android,
-          prefixIconColor: Colors.grey[600],
-          fillColor: Colors.white,
-          focusedBorderColor: Colors.blueGrey,
-          enabledBorderColor: Colors.grey[400],
+          prefixIconColor: AppColors.icon,
+          fillColor: AppColors.buttonText,
+          focusedBorderColor: AppColors.text,
+          enabledBorderColor: AppColors.text,
         ),
         const SizedBox(height: 16),
         ValueListenableBuilder<String>(
@@ -576,15 +578,15 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
               decoration: InputDecoration(
                 labelText: "Gender",
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppColors.buttonText,
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: Colors.grey[400]!, width: 1.5),
+                  borderSide: BorderSide(color: AppColors.text!, width: 1.5),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: const BorderSide(
-                    color: Colors.blueGrey,
+                    color: AppColors.text,
                     width: 2,
                   ),
                 ),
@@ -600,10 +602,10 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
               label: "Date of Birth",
               controller: dobController,
               prefixIcon: Icons.calendar_today,
-              prefixIconColor: Colors.grey[600],
-              fillColor: Colors.white,
-              focusedBorderColor: Colors.blueGrey,
-              enabledBorderColor: Colors.grey[400],
+              prefixIconColor: AppColors.icon,
+              fillColor: AppColors.buttonText,
+              focusedBorderColor: AppColors.text,
+              enabledBorderColor: AppColors.text,
             ),
           ),
         ),
@@ -612,53 +614,59 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
           label: "Address Line 1",
           controller: address1Controller,
           prefixIcon: Icons.home,
-          prefixIconColor: Colors.grey[600],
-          fillColor: Colors.white,
-          focusedBorderColor: Colors.blueGrey,
-          enabledBorderColor: Colors.grey[400],
+          prefixIconColor: AppColors.icon,
+          fillColor: AppColors.buttonText,
+          focusedBorderColor: AppColors.text,
+          enabledBorderColor: AppColors.text,
         ),
         const SizedBox(height: 12),
         CommonTextField(
           label: "Address Line 2",
           controller: address2Controller,
           prefixIcon: Icons.home,
-          prefixIconColor: Colors.grey[600],
-          fillColor: Colors.white,
-          focusedBorderColor: Colors.blueGrey,
-          enabledBorderColor: Colors.grey[400],
+          prefixIconColor: AppColors.icon,
+          fillColor: AppColors.buttonText,
+          focusedBorderColor: AppColors.text,
+          enabledBorderColor: AppColors.text,
         ),
         const SizedBox(height: 12),
         CommonTextField(
           label: "Address Line 3",
           controller: address3Controller,
           prefixIcon: Icons.home,
-          prefixIconColor: Colors.grey[600],
-          fillColor: Colors.white,
-          focusedBorderColor: Colors.blueGrey,
-          enabledBorderColor: Colors.grey[400],
+          prefixIconColor: AppColors.icon,
+          fillColor: AppColors.buttonText,
+          focusedBorderColor: AppColors.text,
+          enabledBorderColor: AppColors.text,
         ),
         const SizedBox(height: 12),
         CommonTextField(
           label: "City",
           controller: cityController,
           prefixIcon: Icons.location_city,
-          prefixIconColor: Colors.grey[600],
-          fillColor: Colors.white,
-          focusedBorderColor: Colors.blueGrey,
-          enabledBorderColor: Colors.grey[400],
+          prefixIconColor: AppColors.icon,
+          fillColor: AppColors.buttonText,
+          focusedBorderColor: AppColors.text,
+          enabledBorderColor: AppColors.text,
         ),
       ],
     ),
   );
 
   Widget _vehicleTab(
-    AsyncValue<List<VehicleTypeModel>> vehicleTypesAsync,
-    AsyncValue<List<VehicleSubType>> vehicleSubTypesAsync,
-  ) => _tabCard(
+      AsyncValue<List<VehicleTypeModel>> vehicleTypesAsync,
+      AsyncValue<List<VehicleSubType>> vehicleSubTypesAsync,
+      ) => _tabCard(
     child: Column(
       children: [
+        // Vehicle Type Dropdown
         vehicleTypesAsync.when(
           data: (vehicleTypes) {
+            final selectedType = ref.watch(selectedVehicleTypeProvider);
+            final validValue = vehicleTypes.any((t) => t.vehTypeid == selectedType?.toString())
+                ? selectedType?.toString()
+                : null;
+
             return DropdownButtonFormField<String>(
               decoration: InputDecoration(
                 labelText: "Vehicle Type",
@@ -666,9 +674,9 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppColors.buttonText,
               ),
-              value: ref.watch(selectedVehicleTypeProvider)?.toString(),
+              value: validValue,
               items: vehicleTypes.map((type) {
                 return DropdownMenuItem<String>(
                   value: type.vehTypeid,
@@ -676,27 +684,38 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
                 );
               }).toList(),
               onChanged: (value) {
-                ref.read(selectedVehicleTypeProvider.notifier).state =
-                    value != null ? int.tryParse(value) : null;
+                final int? newVehTypeId = value != null ? int.tryParse(value) : null;
+                ref.read(selectedVehicleTypeProvider.notifier).state = newVehTypeId;
+                ref.read(selectedVehicleSubTypeProvider.notifier).state = null;
               },
             );
           },
           loading: () => const CircularProgressIndicator(),
           error: (e, _) => Text("Error: $e"),
         ),
+
         const SizedBox(height: 16),
+
+        // Vehicle Sub-Type Dropdown
         vehicleSubTypesAsync.when(
           data: (subTypes) {
+            final selectedSubType = ref.watch(selectedVehicleSubTypeProvider);
+            final validValue = subTypes.any((s) => int.parse(s.vehSubTypeId) == selectedSubType)
+                ? selectedSubType
+                : null;
+
+            if (subTypes.isEmpty) return const SizedBox();
+
             return DropdownButtonFormField<int>(
-              value: ref.watch(selectedVehicleSubTypeProvider),
               decoration: InputDecoration(
                 labelText: "Vehicle Sub-Type",
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppColors.buttonText,
               ),
+              value: validValue,
               items: subTypes.map((sub) {
                 return DropdownMenuItem<int>(
                   value: int.parse(sub.vehSubTypeId),
@@ -705,7 +724,6 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
               }).toList(),
               onChanged: (value) {
                 ref.read(selectedVehicleSubTypeProvider.notifier).state = value;
-                print("Selected VehicleSubTypeId: $value");
               },
             );
           },
@@ -714,16 +732,19 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
         ),
 
         const SizedBox(height: 16),
+
         CommonTextField(
           label: "Vehicle Number",
           controller: vehicleNumberController,
           prefixIcon: Icons.confirmation_number,
-          prefixIconColor: Colors.grey[600],
-          fillColor: Colors.white,
-          focusedBorderColor: Colors.blueGrey,
-          enabledBorderColor: Colors.grey[400],
+          prefixIconColor: AppColors.icon,
+          fillColor: AppColors.buttonText,
+          focusedBorderColor: AppColors.text,
+          enabledBorderColor: AppColors.text,
         ),
+
         const SizedBox(height: 16),
+
         GestureDetector(
           onTap: () => _selectDate(fcdateController),
           child: AbsorbPointer(
@@ -731,16 +752,17 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
               label: "FC Date",
               controller: fcdateController,
               prefixIcon: Icons.date_range,
-              prefixIconColor: Colors.grey[600],
-              fillColor: Colors.white,
-              focusedBorderColor: Colors.blueGrey,
-              enabledBorderColor: Colors.grey[400],
+              prefixIconColor: AppColors.icon,
+              fillColor: AppColors.buttonText,
+              focusedBorderColor: AppColors.text,
+              enabledBorderColor: AppColors.text,
               keyboardType: TextInputType.datetime,
             ),
           ),
         ),
 
         const SizedBox(height: 16),
+
         GestureDetector(
           onTap: () => _selectDate(insdateController),
           child: AbsorbPointer(
@@ -748,34 +770,37 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
               label: "Insurance Date",
               controller: insdateController,
               prefixIcon: Icons.date_range,
-              prefixIconColor: Colors.grey[600],
-              fillColor: Colors.white,
-              focusedBorderColor: Colors.blueGrey,
-              enabledBorderColor: Colors.grey[400],
+              prefixIconColor: AppColors.icon,
+              fillColor: AppColors.buttonText,
+              focusedBorderColor: AppColors.text,
+              enabledBorderColor: AppColors.text,
               keyboardType: TextInputType.datetime,
             ),
           ),
         ),
 
         const SizedBox(height: 16),
+
         CommonTextField(
           label: "License Number",
           controller: licenseNumberController,
           prefixIcon: Icons.badge,
-          prefixIconColor: Colors.grey[600],
-          fillColor: Colors.white,
-          focusedBorderColor: Colors.blueGrey,
-          enabledBorderColor: Colors.grey[400],
+          prefixIconColor: AppColors.icon,
+          fillColor: AppColors.buttonText,
+          focusedBorderColor: AppColors.text,
+          enabledBorderColor: AppColors.text,
         ),
+
         const SizedBox(height: 16),
+
         CommonTextField(
           label: "Aadhaar Number",
           controller: aadhaarNumberController,
           prefixIcon: Icons.badge,
-          prefixIconColor: Colors.grey[600],
-          fillColor: Colors.white,
-          focusedBorderColor: Colors.blueGrey,
-          enabledBorderColor: Colors.grey[400],
+          prefixIconColor: AppColors.icon,
+          fillColor: AppColors.buttonText,
+          focusedBorderColor: AppColors.text,
+          enabledBorderColor: AppColors.text,
         ),
       ],
     ),
@@ -825,25 +850,22 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey[400]!),
+          border: Border.all(color: AppColors.secondary!),
           borderRadius: BorderRadius.circular(12),
           color: Colors.grey[50],
         ),
         child: Row(
           children: [
-            Icon(icon, color: Colors.blueGrey),
+            Icon(icon, color: AppColors.primary),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: AppTextStyles.bodyText.copyWith(fontSize: 15, fontWeight: FontWeight.w500),
               ),
             ),
             file == null
-                ? const Icon(Icons.upload_file, color: Colors.blueGrey)
+                ? const Icon(Icons.upload_file, color: AppColors.primary)
                 : ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.file(

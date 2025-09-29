@@ -6,6 +6,8 @@ class DriverProfile {
   final String mobileNo;
   final String vehTypeId;
   final String vehSubTypeId;
+  final String Vehtypename;
+  final String VehsubTypename;
   final String vehNo;
   final String fcDate;
   final String insDate;
@@ -26,7 +28,9 @@ class DriverProfile {
     required this.password,
     required this.mobileNo,
     required this.vehTypeId,
+    required this.Vehtypename,
     required this.vehSubTypeId,
+    required this.VehsubTypename,
     required this.vehNo,
     required this.fcDate,
     required this.insDate,
@@ -48,8 +52,10 @@ class DriverProfile {
       userName: json['userName'] ?? '',
       password: json['password'] ?? '',
       mobileNo: json['MobileNo'] ?? '',
-      vehTypeId: json['Vehtypeid'] ?? '',
-      vehSubTypeId: json['VehsubTypeid'] ?? '',
+      vehTypeId: json['Vehtypeid'] ?? '1',
+      Vehtypename: json['Vehtypename'] ?? '',
+      vehSubTypeId: json['VehsubTypeid'] ?? '1',
+      VehsubTypename: json['VehsubTypename'] ?? '',
       vehNo: json['VehNo'] ?? '',
       fcDate: json['FCDate'] ?? '',
       insDate: json['InsDate'] ?? '',
@@ -67,12 +73,15 @@ class DriverProfile {
 
   Map<String, dynamic> toJson() {
     return {
+      "Riderid" : riderId,
       "RiderName": riderName,
       "userName": userName,
       "password": password,
       "MobileNo": mobileNo,
       "Vehtypeid": vehTypeId,
+      "Vehtypename": Vehtypename,
       "VehsubTypeid": vehSubTypeId,
+      "VehsubTypename": VehsubTypename,
       "VehNo": vehNo,
       "FCDate": fcDate,
       "InsDate": insDate,
