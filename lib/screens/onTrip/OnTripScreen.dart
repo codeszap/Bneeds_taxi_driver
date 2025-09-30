@@ -35,6 +35,7 @@ class TripNotifier extends StateNotifier<TripState> {
     String fcmToken,
     String userId,
     String cusMobile,
+    bool status,
   ) {
     state = TripState(
       pickup: pickup,
@@ -260,16 +261,6 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
       await _initForTrip();
     });
 
-    Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (_pageController.hasClients) {
-        currentPage = (currentPage + 1) % 2;
-        _pageController.animateToPage(
-          currentPage,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        );
-      }
-    });
   }
 
   void _testmoveTaxiToPickup() async {
@@ -399,8 +390,6 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
     super.dispose();
   }
 
-
-
   Future<void> _initForTrip() async {
     final hasPermission = await _checkLocationPermission();
     if (!hasPermission) return;
@@ -447,7 +436,6 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
     // Start live tracking
     _startLiveTracking();
   }
-
 
   void _moveCameraToFitBounds() {
     if (_mapController == null) return;
@@ -810,15 +798,17 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
   }
 
   GoogleMapController? _mapController;
+
   Marker taxiMarker = Marker(
     markerId: const MarkerId("taxi"),
     position: const LatLng(0, 0),
     icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
   );
+
   List<LatLng> polylineCoordinates = [];
 
   Future<void> getRoute(LatLng start, LatLng end) async {
-    const String googleApiKey = "AIzaSyAWzUqf3Z8xvkjYV7F4gOGBBJ5d_i9HZhs";
+    const String googleApiKey = Strings.googleApiKey;
 
     print("getRoute called");
     print("Start: ${start.latitude}, ${start.longitude}");

@@ -100,6 +100,7 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
         tripData['fcmToken'],
         tripData['userId'],
         tripData['cusMobile'],
+        true
       );
 
       // Navigate to Trip Screen

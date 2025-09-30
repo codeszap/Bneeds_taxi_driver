@@ -256,6 +256,7 @@
             tripData['fcmToken'] as String,
             tripData['userId'] as String,
             tripData['cusMobile'] as String,
+            true
           );
 
           if (statusResp.status == "success") {
