@@ -1,5 +1,8 @@
 import 'package:bneeds_taxi_driver/utils/storage.dart';
 
+import '../models/CancelModel.dart';
+import '../models/VehBookingFinal.dart';
+
 class ApiResponse {
   final String status;
   final String message;
@@ -178,5 +181,75 @@ final body = jsonEncode({
 
   }
 
+  Future<ApiResponse> getCompleteBookingStatus(VehBookingFinal profile) async {
+    final url = "frmvehBookingApi.aspx?action=F";
+    final body = {"vehbookingfinal": [profile.toJson()]};
+
+    try {
+      final response = await _dio.post(
+        url,
+        data: body,
+        options: Options(headers: {"Content-Type": "application/json"}),
+      );
+
+      dynamic resData = response.data;
+      if (resData is String) resData = jsonDecode(resData);
+
+      return ApiResponse.fromJson(resData);
+    } catch (e) {
+      return ApiResponse(status: 'error', message: 'Failed to fetch complete booking status: $e');
+    }
+  }
+
+  Future<bool> cancelBooking(CancelModel cancel) async {
+    try {
+      final payload = {
+        "vehbookingdecline": [cancel.toMap()]
+      };
+
+      final response = await _dio.post(
+        "${ApiEndpoints.bookingRide}?action=D",
+        data: payload,
+        options: Options(headers: {"Content-Type": "application/json"}),
+      );
+
+      print("Status code: ${response.statusCode}");
+
+      dynamic data;
+
+      if (response.data is String) {
+        try {
+          String raw = response.data.toString();
+          print("Raw Response: $raw");
+          data = jsonDecode(raw);
+        } catch (e) {
+          print("Response is not valid JSON: ${response.data}");
+          data = {"status": "error", "message": response.data};
+        }
+      } else {
+        data = response.data;
+      }
+
+      print("Response data: $data");
+
+      final status = data['status'] ?? 'unknown';
+      final message = data['message'] ?? 'No message';
+
+      print("API Status: $status");
+      print("API Message: $message");
+
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          status == "success") {
+        print("Booking cancelled successfully ✅");
+        return true;
+      } else {
+        print("Failed to cancel booking ❌");
+        return false;
+      }
+    } catch (e) {
+      print("Error cancelling booking: $e");
+      return false;
+    }
+  }
 
 }

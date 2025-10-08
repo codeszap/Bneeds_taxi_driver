@@ -10,6 +10,7 @@ d
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.CALL_PHONE"/>
 
     <application
         android:label="Ram Meter Driver"
@@ -28,6 +29,10 @@ d
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyAWzUqf3Z8xvkjYV7F4gOGBBJ5d_i9HZhs"/>
+
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="high_importance_channel"/>
+
 
         <activity
             android:name=".MainActivity"

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:bneeds_taxi_driver/utils/storage.dart';
 
+import '../models/rideRequest.dart';
 import '../screens/home/driver_location_service.dart';
 
 
@@ -59,5 +60,10 @@ final currentLocationProvider = FutureProvider<Position>((ref) async {
   );
 });
 
+// Stores current ride request, null if none
+final rideRequestProvider = StateProvider<RideRequest?>((ref) => null);
+
+// Stores whether the ride has been cancelled
+final rideCancelledProvider = StateProvider<bool>((ref) => false);
 
 

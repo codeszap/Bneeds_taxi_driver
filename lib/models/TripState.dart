@@ -6,7 +6,7 @@ import '../../repositories/vehicle_type_repository.dart';
 
 enum TripStatus { idle, accepted, onTrip, completed }
 
-enum TripPhase { waitingPickup, onTrip, completed }
+// enum TripPhase { waitingPickup, onTrip, completed }
 
 class TripState {
   final String pickup;
@@ -15,7 +15,6 @@ class TripState {
   final LatLng pickupLatLng;
   final LatLng dropLatLng;
   final TripStatus status;
-  final TripPhase phase;
   final int elapsedTime;
   final String otp;
   final String fcmToken;
@@ -36,7 +35,6 @@ class TripState {
     this.pickupLatLng = const LatLng(0, 0),
     this.dropLatLng = const LatLng(0, 0),
     this.status = TripStatus.idle,
-    this.phase = TripPhase.waitingPickup,
     this.elapsedTime = 0,
     this.otp = '',
     this.fcmToken = '',
@@ -58,7 +56,6 @@ class TripState {
     LatLng? pickupLatLng,
     LatLng? dropLatLng,
     TripStatus? status,
-    TripPhase? phase,
     int? elapsedTime,
     bool? canStartTrip,
     bool? canCompleteTrip,
@@ -79,7 +76,6 @@ class TripState {
       pickupLatLng: pickupLatLng ?? this.pickupLatLng,
       dropLatLng: dropLatLng ?? this.dropLatLng,
       status: status ?? this.status,
-      phase: phase ?? this.phase,
       elapsedTime: elapsedTime ?? this.elapsedTime,
       canStartTrip: canStartTrip ?? this.canStartTrip,
       canCompleteTrip: canCompleteTrip ?? this.canCompleteTrip,
@@ -105,7 +101,6 @@ class TripState {
       "driverCurrentLatLng":
       "${driverCurrentLatLng.latitude},${driverCurrentLatLng.longitude}",
       "status": status.toString(),
-      "phase": phase.toString(),
       "elapsedTime": elapsedTime,
       "canStartTrip": canStartTrip,
       "canCompleteTrip": canCompleteTrip,
@@ -118,9 +113,20 @@ class TripState {
   }
 
   factory TripState.fromMap(Map<String, dynamic> map) {
-    LatLng parseLatLng(String value) {
-      final parts = value.split(',');
-      return LatLng(double.parse(parts[0]), double.parse(parts[1]));
+    LatLng parseLatLng(dynamic value) {
+      if (value is String) {
+        final parts = value.split(',');
+        return LatLng(double.parse(parts[0]), double.parse(parts[1]));
+      } else if (value is Map<String, dynamic>) {
+        return LatLng(value['lat'] ?? 0.0, value['lng'] ?? 0.0);
+      } else {
+        return const LatLng(0, 0);
+      }
+    }
+
+    int statusIndex = 0;
+    if (map['status'] is int) {
+      statusIndex = map['status'];
     }
 
     return TripState(
@@ -133,21 +139,12 @@ class TripState {
       dropLatLng: map['dropLatLng'] != null
           ? parseLatLng(map['dropLatLng'])
           : const LatLng(0, 0),
-      driverCurrentLatLng: map['driverCurrentLatLng'] != null
+      driverCurrentLatLng: map['driverLat'] != null && map['driverLng'] != null
+          ? LatLng(map['driverLat'], map['driverLng'])
+          : (map['driverCurrentLatLng'] != null
           ? parseLatLng(map['driverCurrentLatLng'])
-          : const LatLng(0, 0),
-      status: map['status'] != null
-          ? TripStatus.values.firstWhere(
-            (e) => e.toString() == map['status'],
-        orElse: () => TripStatus.idle,
-      )
-          : TripStatus.idle,
-      phase: map['phase'] != null
-          ? TripPhase.values.firstWhere(
-            (e) => e.toString() == map['phase'],
-        orElse: () => TripPhase.waitingPickup,
-      )
-          : TripPhase.waitingPickup,
+          : const LatLng(0, 0)),
+      status: TripStatus.values[statusIndex],
       elapsedTime: map['elapsedTime'] ?? 0,
       canStartTrip: map['canStartTrip'] ?? false,
       canCompleteTrip: map['canCompleteTrip'] ?? false,
@@ -156,6 +153,10 @@ class TripState {
       bookingId: map['bookingId'] ?? '',
       userId: map['userId'] ?? '',
       cusMobile: map['cusMobile'] ?? '',
+      pickupRouteVisible: map['pickupRouteVisible'] ?? true,
+      dropRouteVisible: map['dropRouteVisible'] ?? false,
+      isLoading: map['isLoading'] ?? true,
     );
   }
+
 }

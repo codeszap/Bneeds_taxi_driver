@@ -2,6 +2,9 @@ import 'package:bneeds_taxi_driver/utils/storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 
+import '../models/VehBookingFinal.dart';
+import 'onTrip/TripNotifier.dart';
+
 class TripCompleteScreen extends ConsumerStatefulWidget {
   const TripCompleteScreen({super.key});
 
@@ -11,8 +14,8 @@ class TripCompleteScreen extends ConsumerStatefulWidget {
 
 class _TripCompleteScreenState extends ConsumerState<TripCompleteScreen> {
   late TextEditingController _fareController;
-  String _selectedPayment = "Cash"; // default
-
+  String _selectedPayment = "Cash";
+  bool _isLoading = false;
   @override
   void initState() {
     super.initState();
@@ -52,7 +55,7 @@ class _TripCompleteScreenState extends ConsumerState<TripCompleteScreen> {
                   vertical: 40,
                   horizontal: AppDimensions.pagePadding,
                 ),
-                child:Column(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SingleChildScrollView(
@@ -67,7 +70,10 @@ class _TripCompleteScreenState extends ConsumerState<TripCompleteScreen> {
                           const SizedBox(height: 16),
                           Text(
                             Strings.tripCompleted,
-                            style: AppTextStyles.heading(color: Colors.black87, size: 24),
+                            style: AppTextStyles.heading(
+                              color: Colors.black87,
+                              size: 24,
+                            ),
                           ),
                           const SizedBox(height: 16),
                           // 1️⃣ Show calculated fare
@@ -86,8 +92,21 @@ class _TripCompleteScreenState extends ConsumerState<TripCompleteScreen> {
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
                               labelText: "Adjust Fare if needed",
-                              border: OutlineInputBorder(
+                              filled: true,
+                              fillColor: Colors.white,
+                              enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: Colors.grey, // color when not focused
+                                  width: 1.5,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: Colors.blue, // color when focused
+                                  width: 2,
+                                ),
                               ),
                             ),
                             style: const TextStyle(
@@ -107,10 +126,12 @@ class _TripCompleteScreenState extends ConsumerState<TripCompleteScreen> {
                               ),
                             ),
                             items: ["Cash", "Online", "Wallet"]
-                                .map((method) => DropdownMenuItem(
-                              value: method,
-                              child: Text(method),
-                            ))
+                                .map(
+                                  (method) => DropdownMenuItem(
+                                    value: method,
+                                    child: Text(method),
+                                  ),
+                                )
                                 .toList(),
                             onChanged: (value) {
                               setState(() {
@@ -121,67 +142,108 @@ class _TripCompleteScreenState extends ConsumerState<TripCompleteScreen> {
                         ],
                       ),
                     ),
+
                     ElevatedButton.icon(
-                      onPressed: () async {
-                        final bookingIdStr = SharedPrefsHelper.getBookingId();
-                        final bookingId = int.tryParse(bookingIdStr) ?? 0;
+                      onPressed: _isLoading
+                          ? null
+                          : () async {
+                              setState(() => _isLoading = true);
+                              try {
+                                final trip = ref.read(tripProvider);
+                                final bookingIdStr =
+                                    SharedPrefsHelper.getBookingId();
+                                final updatedFare =
+                                    int.tryParse(_fareController.text) ??
+                                    trip.fare;
 
-                        // Get updated fare from TextField
-                        final updatedFare = int.tryParse(_fareController.text) ??
-                            ref.read(tripProvider).fare;
+                                final fromLatLong =
+                                    "${trip.driverCurrentLatLng.latitude},${trip.driverCurrentLatLng.longitude}";
+                                final toLatLong =
+                                    "${trip.dropLatLng.latitude},${trip.dropLatLng.longitude}";
+                                final riderId = SharedPrefsHelper.getRiderId();
+                                final userId = SharedPrefsHelper.getUserId();
 
-                        // Get selected payment method
-                        final paymentMethod = _selectedPayment;
+                                final distanceInMeters =
+                                    Geolocator.distanceBetween(
+                                      trip.driverCurrentLatLng.latitude,
+                                      trip.driverCurrentLatLng.longitude,
+                                      trip.dropLatLng.latitude,
+                                      trip.dropLatLng.longitude,
+                                    );
+                                final distanceInKm = (distanceInMeters / 1000)
+                                    .toStringAsFixed(3);
 
-                        // Get driver current location
-                        final trip = ref.read(tripProvider);
-                        final fromLatLong =
-                            "${trip.driverCurrentLatLng.latitude},${trip.driverCurrentLatLng.longitude}";
+                                final profile = VehBookingFinal(
+                                  distance: distanceInKm,
+                                  finalamt: updatedFare.toString(),
+                                  fromLatLong: fromLatLong,
+                                  toLatLong: toLatLong,
+                                  userid: userId,
+                                  bookingId: bookingIdStr,
+                                  riderId: riderId,
+                                );
 
-                        // Update driver status to ON
-                        final repo = ref.read(driverRepositoryProvider);
-                        final riderId = SharedPrefsHelper.getRiderId();
+                                await ProfileRepository()
+                                    .getCompleteBookingStatus(profile);
 
-                        final response = await repo.updateDriverStatus(
-                          riderId: riderId,
-                          riderStatus: "ON", // mark driver as available
-                          fromLatLong: fromLatLong,
-                        );
+                                final repo = ref.read(driverRepositoryProvider);
+                                final response = await repo.updateDriverStatus(
+                                  riderId: riderId,
+                                  riderStatus: "OL",
+                                  fromLatLong: fromLatLong,
+                                );
 
-                        if (response.status == "success") {
-                          // 1️⃣ Update Riverpod state
-                          ref.read(driverStatusProvider.notifier).state = "OL"; // Online / Ready for rides
-                          await SharedPrefsHelper.setDriverStatus("OL"); // persist locally
+                                if (response.status == "success") {
+                                  ref
+                                          .read(driverStatusProvider.notifier)
+                                          .state =
+                                      "OL";
 
-                          // 2️⃣ Navigate back to HomeScreen
-                          context.go(AppRoutes.driverHome);
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("Failed to update driver status: ${response.message}")),
-                          );
-                        }
+                                  // Clear SharedPrefs in background
+                                  SharedPrefsHelper.clearBookingId();
+                                  SharedPrefsHelper.clearUserId();
+                                  SharedPrefsHelper.clearTripData();
+                                  SharedPrefsHelper.clearOngoingTrip();
+                                  ref.read(tripProvider.notifier).reset();
 
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 32,
-                          vertical: AppDimensions.buttonPadding,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        backgroundColor: AppColors.success,
-                        foregroundColor: AppColors.buttonText,
-                        elevation: 5,
-                        textStyle: AppTextStyles.button(),
+
+                                  // Navigate immediately
+                                  context.go(AppRoutes.driverHome);
+
+
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        "Failed: ${response.message}",
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text("Error: $e")),
+                                );
+                              } finally {
+                                if (mounted) setState(() => _isLoading = false);
+                              }
+                            },
+                      icon: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.refresh),
+                      label: Text(
+                        _isLoading ? "Processing..." : Strings.readyForNextRide,
                       ),
-                      icon: const Icon(Icons.refresh),
-                      label: const Text(Strings.readyForNextRide),
-                    )
-
-
+                    ),
                   ],
-                )
+                ),
               ),
             ),
           ),

@@ -286,14 +286,14 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
         : ref.read(vehicleSubTypesProvider(selectedVehTypeId)).value ?? [];
 
     final selectedVehTypeName = vehicleTypes.firstWhere(
-          (type) => type.vehTypeid == selectedVehTypeId?.toString(),
-      orElse: () => VehicleTypeModel(vehTypeid: "", vehTypeName: ""),
-    ).vehTypeName;
+            (type) => type.vehTypeid == selectedVehTypeId?.toString(),
+        orElse: () => VehicleTypeModel(vehTypeid: "", vehTypeName: "")) // fallback
+        .vehTypeName;
 
     final selectedVehSubTypeName = vehicleSubTypes.firstWhere(
-          (sub) => int.parse(sub.vehSubTypeId) == selectedVehicleSubTypeId,
-      orElse: () => VehicleSubType(vehSubTypeId: "0", vehSubTypeName: ""),
-    ).vehSubTypeName;
+            (sub) => int.parse(sub.vehSubTypeId) == selectedVehicleSubTypeId,
+        orElse: () => VehicleSubType(vehSubTypeId: "0", vehSubTypeName: "")) // fallback
+        .vehSubTypeName;
 
     final profile = DriverProfile(
       riderId: riderId,
@@ -310,9 +310,9 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
       add3: address3Controller.text,
       city: cityController.text,
       vehTypeId: selectedVehTypeId?.toString() ?? "",
-      Vehtypename: selectedVehTypeName,       // ✅ Send type name
+      Vehtypename: selectedVehTypeName,
       vehSubTypeId: selectedVehicleSubTypeId?.toString() ?? "",
-      VehsubTypename: selectedVehSubTypeName, // ✅ Send sub-type name
+      VehsubTypename: selectedVehSubTypeName,
       vehNo: vehicleNumberController.text,
       fcDate: fcdateController.text.isNotEmpty
           ? DateFormat("dd-MM-yyyy").parse(fcdateController.text).toIso8601String().split('T')[0]
@@ -328,30 +328,37 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
     try {
       ApiResponse message;
       if (riderId == null || riderId.isEmpty) {
-        /// 👉 New user → INSERT
+        // New user → INSERT
         message = await ProfileRepository().insertUserProfile(profile);
       } else {
-        /// 👉 Existing user → UPDATE
+        // Existing user → UPDATE
         message = await ProfileRepository().updateUserProfile(profile);
       }
 
       if (message.status == "success") {
-        await SharedPrefsHelper.setDriverName(nameController.text);
-        await SharedPrefsHelper.setDriverMobile(mobile);
-        await SharedPrefsHelper.setDriverCity(cityController.text);
-        await SharedPrefsHelper.setIsDriverProfileCompleted(true);
-
-
-        if (selectedVehTypeId != null) {
-          await SharedPrefsHelper.setDriverVehicleTypeId(selectedVehTypeId.toString());
-        }
-        if (selectedVehicleSubTypeId != null) {
-          await SharedPrefsHelper.setDriverVehicleSubTypeId(selectedVehicleSubTypeId.toString());
-        }
-
+        // ✅ Save ALL profile fields to SharedPrefs
+        await SharedPrefsHelper.setDriverId(profile.riderId ?? "");
+        await SharedPrefsHelper.setDriverName(profile.riderName);
+        await SharedPrefsHelper.setDriverMobile(profile.mobileNo);
+        await SharedPrefsHelper.setDriverCity(profile.city);
+        await SharedPrefsHelper.setDriverAddress1(profile.add1);
+        await SharedPrefsHelper.setDriverAddress2(profile.add2);
+        await SharedPrefsHelper.setDriverAddress3(profile.add3);
+        await SharedPrefsHelper.setDriverGender(profile.gender);
+        await SharedPrefsHelper.setDriverDob(profile.dateOfBirth);
+        await SharedPrefsHelper.setDriverVehicleTypeId(profile.vehTypeId);
+        await SharedPrefsHelper.setDriverVehicleTypeName(profile.Vehtypename);
+        await SharedPrefsHelper.setDriverVehicleSubTypeId(profile.vehSubTypeId);
+        await SharedPrefsHelper.setDriverVehicleSubTypeName(profile.VehsubTypename);
+        await SharedPrefsHelper.setDriverVehicleNumber(profile.vehNo);
+        await SharedPrefsHelper.setDriverFcDate(profile.fcDate);
+        await SharedPrefsHelper.setDriverInsDate(profile.insDate);
+        await SharedPrefsHelper.setDriverLicenseNo(profile.licenseNo);
+        await SharedPrefsHelper.setDriverAdhaarNo(profile.adhaarNo);
         if (fcmToken != null) {
           await SharedPrefsHelper.setDriverFcmToken(fcmToken);
         }
+        await SharedPrefsHelper.setIsDriverProfileCompleted(true);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile saved successfully')),
@@ -369,6 +376,7 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
       );
     }
   }
+
 
 
   @override

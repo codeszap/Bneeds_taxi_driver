@@ -6,6 +6,7 @@ import '../models/rideRequest.dart';
 class SharedPrefsKeys {
   static const String driverStatus = "driverStatus";
   static const String riderId = "riderId";
+  static const String userId = "userId";
   static const String bookingId = "bookingId";
   static const String ongoingTrip = "ongoingTrip";
   static const String driverMobile = "driverMobile";
@@ -38,6 +39,10 @@ class SharedPrefsHelper {
     await _prefs?.setString(SharedPrefsKeys.bookingId, bookingId);
   }
 
+  static Future setUserId(String userId) async {
+    await _prefs?.setString(SharedPrefsKeys.userId, userId);
+  }
+
   static Future setOngoingTrip(String tripJson) async {
     await _prefs?.setString(SharedPrefsKeys.ongoingTrip, tripJson);
   }
@@ -68,6 +73,8 @@ class SharedPrefsHelper {
   static String getRiderId() => _prefs?.getString(SharedPrefsKeys.riderId) ?? "";
 
   static String getBookingId() => _prefs?.getString(SharedPrefsKeys.bookingId) ?? "";
+
+  static String getUserId() => _prefs?.getString(SharedPrefsKeys.userId) ?? "";
 
   static String? getOngoingTrip() => _prefs?.getString(SharedPrefsKeys.ongoingTrip);
 
@@ -159,6 +166,99 @@ class SharedPrefsHelper {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('tripData');
   }
+
+  static Future clearUserId() async {
+    await _prefs?.remove(SharedPrefsKeys.userId);
+  }
+
+  static Future clearBookingId() async {
+    await _prefs?.remove(SharedPrefsKeys.bookingId);
+  }
+
+  static Future clearRiderId() async {
+    await _prefs?.remove(SharedPrefsKeys.riderId);
+  }
+
+  /// ---------- NEW DRIVER PROFILE FIELDS ----------
+
+  static Future setDriverAddress1(String value) async =>
+      await _prefs?.setString('driverAddress1', value);
+
+  static String getDriverAddress1() =>
+      _prefs?.getString('driverAddress1') ?? "";
+
+  static Future setDriverAddress2(String value) async =>
+      await _prefs?.setString('driverAddress2', value);
+
+  static String getDriverAddress2() =>
+      _prefs?.getString('driverAddress2') ?? "";
+
+  static Future setDriverAddress3(String value) async =>
+      await _prefs?.setString('driverAddress3', value);
+
+  static String getDriverAddress3() =>
+      _prefs?.getString('driverAddress3') ?? "";
+
+  static Future setDriverGender(String value) async =>
+      await _prefs?.setString('driverGender', value);
+
+  static String getDriverGender() =>
+      _prefs?.getString('driverGender') ?? "";
+
+  static Future setDriverDob(String value) async =>
+      await _prefs?.setString('driverDob', value);
+
+  static String getDriverDob() =>
+      _prefs?.getString('driverDob') ?? "";
+
+  static Future setDriverVehicleTypeName(String value) async =>
+      await _prefs?.setString('driverVehicleTypeName', value);
+
+  static Future<String?> getDriverVehicleTypeName() async =>
+      _prefs?.getString('driverVehicleTypeName');
+
+  static Future setDriverVehicleSubTypeName(String value) async =>
+      await _prefs?.setString('driverVehicleSubTypeName', value);
+
+  static Future<String?> getDriverVehicleSubTypeName() async =>
+      _prefs?.getString('driverVehicleSubTypeName');
+
+  static Future setDriverVehicleNumber(String value) async =>
+      await _prefs?.setString('driverVehicleNumber', value);
+
+  static Future<String?> getDriverVehicleNumber() async =>
+      _prefs?.getString('driverVehicleNumber');
+
+  static Future setDriverFcDate(String value) async =>
+      await _prefs?.setString('driverFcDate', value);
+
+  static Future<String?> getDriverFcDate() async =>
+      _prefs?.getString('driverFcDate');
+
+  static Future setDriverInsDate(String value) async =>
+      await _prefs?.setString('driverInsDate', value);
+
+  static Future<String?> getDriverInsDate() async =>
+      _prefs?.getString('driverInsDate');
+
+  static Future setDriverLicenseNo(String value) async =>
+      await _prefs?.setString('driverLicenseNo', value);
+
+  static Future<String?> getDriverLicenseNo() async =>
+      _prefs?.getString('driverLicenseNo');
+
+  static Future setDriverAdhaarNo(String value) async =>
+      await _prefs?.setString('driverAdhaarNo', value);
+
+  static Future<String?> getDriverAdhaarNo() async =>
+      _prefs?.getString('driverAdhaarNo');
+  /// ---------- DRIVER ID ----------
+  static Future setDriverId(String value) async =>
+      await _prefs?.setString('driverId', value);
+
+  static String getDriverId() =>
+      _prefs?.getString('driverId') ?? "";
+
 
 
 }

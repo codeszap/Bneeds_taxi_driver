@@ -31,6 +31,7 @@
 
 // booking_provider.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/VehBookingFinal.dart';
 import '../repositories/accept_booking_repository.dart';
 import '../models/ApiResponse.dart';
 
@@ -89,9 +90,3 @@ final acceptBookingProvider =
   return repository.getAcceptBookingStatus(params.bookingId, params.riderId);
 });
 
-// Provider for complete booking
-final completeBookingProvider =
-    FutureProvider.family<List<ApiResponse>, CompleteBookingParams>((ref, params) {
-  final repository = ref.read(acceptBookingRepositoryProvider);
-  return repository.getCompleteBookingStatus(params.bookingId, params.distanceKms);
-});
