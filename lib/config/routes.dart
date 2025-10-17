@@ -1,4 +1,5 @@
 import 'package:bneeds_taxi_driver/utils/storage.dart';
+import '../screens/home/riderOverlayScreen.dart';
 import '../screens/home/driverHomeScreen.dart';
 
 class AppRoutes {
@@ -13,6 +14,7 @@ class AppRoutes {
   static const String driverProfile = '/driverProfile';
   static const String trip = '/trip';
   static const String tripComplete = '/tripComplete';
+  static const String demoScreenRoute   = '/Example1';
 
   // Screens (optional, if you want central reference)
   static Widget deciderScreen() => const RouteDecider();
@@ -25,12 +27,13 @@ class AppRoutes {
       DriverProfileScreen(isNewUser: isNewUser);
   static Widget tripScreen() => const OnTripScreen();
   static Widget tripCompleteScreen() => const TripCompleteScreen();
+  static Widget demoScreenWidget() =>  RiderOverlayScreen();
 }
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 final GoRouter router = GoRouter(
-  navigatorKey: navigatorKey,
+  navigatorKey: rootNavigatorKey,
   initialLocation: AppRoutes.splash,
   routes: [
     GoRoute(
@@ -73,5 +76,11 @@ final GoRouter router = GoRouter(
       path: AppRoutes.tripComplete,
       builder: (context, state) => AppRoutes.tripCompleteScreen(),
     ),
+    GoRoute(
+      path: AppRoutes.demoScreenRoute,
+      builder: (context, state) => AppRoutes.demoScreenWidget(),
+    ),
+
+
   ],
 );

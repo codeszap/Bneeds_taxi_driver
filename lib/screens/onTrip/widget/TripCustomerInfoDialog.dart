@@ -254,10 +254,15 @@ class TripCustomerInfoDialog extends StatelessWidget {
                                     backgroundColor: Colors.green,
                                   ),
                                 );
+                                container.read(driverStatusProvider.notifier)
+                                    .state =
+                                "OL";
+                                await SharedPrefsHelper.setDriverStatus("OL");
                                 Navigator.of(
                                   context,
                                 ).pop(); // close TripCustomerInfoDialog
                                 // Navigate home
+
                                 Future.delayed(
                                   Duration.zero,
                                   () => router.go(AppRoutes.driverHome),

@@ -9,7 +9,7 @@ class ApiResponseDialog {
     required BuildContext context,
     required WidgetRef ref,
     required String status,
-    required String message,
+    required String message, required BuildContext context2,
   }) async {
     if (!context.mounted) return;
     final isSuccess = status.toLowerCase() == 'success';
@@ -55,6 +55,7 @@ class ApiResponseDialog {
                   onPressed: () {
                     ref.read(rideRequestProvider.notifier).state = null;
                     Navigator.pop(context);
+                    Navigator.pop(context2);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isSuccess ? Colors.green : Colors.red,

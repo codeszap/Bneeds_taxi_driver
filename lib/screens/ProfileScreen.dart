@@ -277,7 +277,7 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
 
     final riderId = SharedPrefsHelper.getRiderId();
     final fcmToken = await FirebaseMessaging.instance.getToken();
-    print("---->>>>>Driver FCM Token: $fcmToken");
+
 
     // Fetch vehicle type/sub-type names
     final vehicleTypes = ref.read(vehicleTypesProvider).value ?? [];
@@ -357,6 +357,7 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
         await SharedPrefsHelper.setDriverAdhaarNo(profile.adhaarNo);
         if (fcmToken != null) {
           await SharedPrefsHelper.setDriverFcmToken(fcmToken);
+          print("---->>>>>Driver FCM Token: $fcmToken");
         }
         await SharedPrefsHelper.setIsDriverProfileCompleted(true);
 

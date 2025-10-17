@@ -95,6 +95,15 @@ class ProfileRepository {
 
       final data = response.data is String ? jsonDecode(response.data) : response.data;
 
+      // 💡 Access the Riderid from the raw data before conversion
+      // The C# API returns Riderid on success for action=E too.
+      if (data["status"] == "success" && data["Riderid"] != null) {
+        final riderId = data["Riderid"].toString();
+        // Optional: You might want to update or confirm the saved RiderId here.
+        await SharedPrefsHelper.setRiderId(riderId);
+        print("✅ RiderId confirmed/updated in shared preferences: $riderId");
+      }
+
       return ApiResponse.fromJson(data);
     } on DioException catch (e) {
       print("❌ Update Error: ${e.response?.data ?? e.message}");
@@ -251,5 +260,50 @@ final body = jsonEncode({
       return false;
     }
   }
+
+  Future<ApiResponse> updateFcmToken({
+    required String mobileNo,
+    required String tokenKey,
+  }) async {
+    final url = "frmRiderProfileApi.aspx?action=T";
+
+    final body = jsonEncode({
+      "updateridertokenkey": [
+        {
+          "mobileno": mobileNo,
+          "tokenkey": tokenKey,
+        }
+      ]
+    });
+
+    try {
+      print("🚀 Calling API: $url");
+      print("📦 Body: $body");
+
+      final response = await _dio.post(
+        url,
+        data: body,
+        options: Options(headers: {"Content-Type": "application/json"}),
+      );
+
+      print("✅ Raw Response: ${response.data}");
+
+      final data = response.data is String
+          ? jsonDecode(response.data)
+          : response.data;
+
+      return ApiResponse(
+        status: data['status'] ?? 'error',
+        message: data['message'] ?? 'Unknown',
+      );
+    } on DioException catch (e) {
+      print("❌ Dio Error: ${e.response?.data ?? e.message}");
+      return ApiResponse(
+        status: "error",
+        message: e.response?.data.toString() ?? e.message ?? "Unknown error",
+      );
+    }
+  }
+
 
 }

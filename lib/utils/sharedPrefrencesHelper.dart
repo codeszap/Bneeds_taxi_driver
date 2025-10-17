@@ -259,6 +259,16 @@ class SharedPrefsHelper {
   static String getDriverId() =>
       _prefs?.getString('driverId') ?? "";
 
+  static Future<void> setOverlayPosition(int x, int y) async {
+    await _prefs?.setInt("overlay_pos_x", x);
+    await _prefs?.setInt("overlay_pos_y", y);
+  }
 
+  /// Get saved overlay position
+  static Map<String, int> getOverlayPosition() {
+    final x = _prefs?.getInt("overlay_pos_x") ?? 0;
+    final y = _prefs?.getInt("overlay_pos_y") ?? 0;
+    return {"x": x, "y": y};
+  }
 
 }

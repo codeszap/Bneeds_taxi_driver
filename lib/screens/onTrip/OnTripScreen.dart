@@ -693,13 +693,13 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
                 ElevatedButton(
                   onPressed: () {
                     // Show OTP in SnackBar for testing
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text("Test OTP: ${trip.otp}"),
-                        duration: const Duration(seconds: 5),
-                        backgroundColor: Colors.redAccent,
-                      ),
-                    );
+                    // ScaffoldMessenger.of(context).showSnackBar(
+                    //   SnackBar(
+                    //     content: Text("Test OTP: ${trip.otp}"),
+                    //     duration: const Duration(seconds: 5),
+                    //     backgroundColor: Colors.redAccent,
+                    //   ),
+                    // );
 
                     // Open OTP dialog
                     showOtpDialog(

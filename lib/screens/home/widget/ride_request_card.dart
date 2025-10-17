@@ -12,11 +12,12 @@ import '../../onTrip/TripNotifier.dart';
 class RideRequestCard extends ConsumerWidget {
   final RideRequest rideRequest;
   final AudioPlayer audioPlayer;
+  final BuildContext requiredContext;
 
   const RideRequestCard({
     super.key,
     required this.rideRequest,
-    required this.audioPlayer,
+    required this.audioPlayer, required this.requiredContext,
   });
 
   String generateOtp() {
@@ -116,7 +117,10 @@ class RideRequestCard extends ConsumerWidget {
                       ),
                       onPressed: () async {
                         audioPlayer.stop();
-                        await _handleAccept(buttonContext, ref);
+                        // if (Navigator.canPop(requiredContext)) {
+                        //   Navigator.pop(requiredContext);
+                        // }
+                        await _handleAccept(requiredContext, ref);
                       },
                     ),
                   ),
@@ -148,7 +152,7 @@ class RideRequestCard extends ConsumerWidget {
     );
   }
 
-  Future<void> _handleAccept(BuildContext context, WidgetRef ref) async {
+  Future<void> _handleAccept(BuildContext rootContext, WidgetRef ref) async {
     final repo = ref.read(acceptBookingRepositoryProvider);
     final driverRepo = ref.read(driverRepositoryProvider);
     final tripNotifier = ref.read(tripProvider.notifier);
@@ -167,9 +171,10 @@ class RideRequestCard extends ConsumerWidget {
       );
 
       if (response.isEmpty) {
-        if (context.mounted) {
+        if (rootContext.mounted) {
           await ApiResponseDialog.show(
-            context: context,
+            context: rootContext,
+            context2:requiredContext,
             ref: ref,
             status: 'error',
             message: 'Something went wrong!',
@@ -180,9 +185,10 @@ class RideRequestCard extends ConsumerWidget {
 
       final apiResp = response.first;
 
-      if (context.mounted) {
+      if (rootContext.mounted) {
         await ApiResponseDialog.show(
-          context: context,
+          context: rootContext,
+          context2:requiredContext,
           ref: ref,
           status: apiResp.status ?? 'error',
           message: apiResp.message ?? 'Unknown error',
@@ -208,8 +214,6 @@ class RideRequestCard extends ConsumerWidget {
           rideRequest.cusMobile,
           TripStatus.accepted,
         );
-
-
 
         // ✅ Clear request card
         rideRequestNotifier.state = null;
@@ -268,9 +272,10 @@ class RideRequestCard extends ConsumerWidget {
         });
       }
     } catch (e) {
-      if (context.mounted) {
+      if (rootContext.mounted) {
         await ApiResponseDialog.show(
-          context: context,
+          context: rootContext,
+          context2:requiredContext,
           ref: ref,
           status: 'error',
           message: 'Failed to accept ride: $e',

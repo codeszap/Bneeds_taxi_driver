@@ -24,15 +24,52 @@ class _DriverSplashScreenState extends ConsumerState<DriverSplashScreen> {
 
   Future<void> _initFCMToken() async {
     try {
-      final fcmToken = await FirebaseMessaging.instance.getToken();
-      if (fcmToken != null) {
-        await SharedPrefsHelper.setDriverFcmToken(fcmToken);
-        debugPrint("✅ FCM Token saved: $fcmToken");
+      final prefsFcmToken = SharedPrefsHelper.getDriverFcmToken();
+      final mobileNo = SharedPrefsHelper.getDriverMobile();
+      final riderId = SharedPrefsHelper.getRiderId();
+
+      if (riderId.isEmpty) {
+        debugPrint("⚠️ Rider Id not found. Cannot update FCM token.");
       } else {
-        debugPrint("⚠️ Failed to fetch FCM Token");
+        debugPrint("✅ Rider Id found: $riderId");
+      }
+
+      if (mobileNo.isEmpty) {
+        debugPrint(
+          "⚠️ Driver mobile number not found. Cannot update FCM token.",
+        );
+        return;
+      }
+      if (prefsFcmToken.isEmpty) {
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+
+        if (fcmToken != null && fcmToken.isNotEmpty) {
+          debugPrint("✅ New FCM Token fetched: $fcmToken");
+
+          final repo = ref.read(driverRepositoryProvider);
+          final response = await repo.updateFcmToken(
+            mobileNo: mobileNo,
+            tokenKey: fcmToken,
+          );
+
+          if (response.status == "success") {
+            await SharedPrefsHelper.setDriverFcmToken(fcmToken);
+            debugPrint(
+              "✅ FCM Token successfully updated on server and saved locally.",
+            );
+          } else {
+            debugPrint(
+              "⚠️ Failed to update FCM token on the server. Status: ${response.status}",
+            );
+          }
+        } else {
+          debugPrint("⚠️ Failed to fetch new FCM Token from Firebase.");
+        }
+      } else {
+        debugPrint("✅ FCM Token already exists locally.");
       }
     } catch (e) {
-      debugPrint("❌ Error getting FCM Token: $e");
+      debugPrint("❌ An error occurred in _initFCMToken: $e");
     }
   }
 
@@ -55,19 +92,21 @@ class _DriverSplashScreenState extends ConsumerState<DriverSplashScreen> {
       final statusIndex = tripData['status'] ?? 0;
       final tripStatus = TripStatus.values[statusIndex];
 
-      ref.read(tripProvider.notifier).acceptRide(
-        tripData['pickup'],
-        tripData['drop'],
-        tripData['fare'],
-        pickupLatLng,
-        dropLatLng,
-        tripData['otp'],
-        tripData['bookingId'],
-        tripData['fcmToken'],
-        tripData['userId'],
-        tripData['cusMobile'],
-          tripStatus
-      );
+      ref
+          .read(tripProvider.notifier)
+          .acceptRide(
+            tripData['pickup'],
+            tripData['drop'],
+            tripData['fare'],
+            pickupLatLng,
+            dropLatLng,
+            tripData['otp'],
+            tripData['bookingId'],
+            tripData['fcmToken'],
+            tripData['userId'],
+            tripData['cusMobile'],
+            tripStatus,
+          );
 
       context.go(AppRoutes.trip);
       return;
@@ -93,6 +132,7 @@ class _DriverSplashScreenState extends ConsumerState<DriverSplashScreen> {
       context.go(AppRoutes.login);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -103,11 +143,7 @@ class _DriverSplashScreenState extends ConsumerState<DriverSplashScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset(
-                Strings.logo,
-                width: 180,
-                height: 180,
-              ),
+              Image.asset(Strings.logo, width: 180, height: 180),
               const SizedBox(height: 24),
               Text(
                 "Get there fast, safe and smart.",

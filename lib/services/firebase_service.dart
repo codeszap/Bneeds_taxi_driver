@@ -5,7 +5,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:audioplayers/audioplayers.dart';
-
 import 'package:go_router/go_router.dart';
 
 import '../models/rideRequest.dart';
@@ -16,28 +15,49 @@ import '../utils/constants.dart';
 import '../utils/sharedPrefrencesHelper.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
+FlutterLocalNotificationsPlugin();
 
-const AndroidNotificationChannel channel = AndroidNotificationChannel(
-  'high_importance_channel',
-  'High Importance Notifications',
-  description: 'This channel is used for important notifications.',
-  importance: Importance.high,
+// 🚨 Notification channel with custom sound
+const AndroidNotificationChannel rideRequestChannel = AndroidNotificationChannel(
+  'ride_request_channel',
+  'Ride Requests',
+  description: 'Incoming ride requests',
+  importance: Importance.max,
+  playSound: true,
+  sound: RawResourceAndroidNotificationSound('ride_request'), // no extension
+  //fullScreenIntent: true,
 );
 
+
+// Background handler
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   final data = message.data;
-
   final bookingId = int.tryParse(data['bookingId'] ?? '0') ?? 0;
 
   final androidDetails = AndroidNotificationDetails(
-    'ride_request_channel',
-    'Ride Requests',
-    channelDescription: 'Incoming ride requests',
+    rideRequestChannel.id,
+    rideRequestChannel.name,
+    channelDescription: rideRequestChannel.description,
     importance: Importance.max,
     priority: Priority.high,
-    fullScreenIntent: true,
+    fullScreenIntent: true, // triggers full-screen notification
+    autoCancel: false,
+    category: AndroidNotificationCategory.call,
+    visibility: NotificationVisibility.public,
+    sound: RawResourceAndroidNotificationSound('ride_request'),
+    actions: <AndroidNotificationAction>[
+      AndroidNotificationAction(
+        'accept_action',
+        'Accept',
+        showsUserInterface: true,
+      ),
+      AndroidNotificationAction(
+        'reject_action',
+        'Reject',
+        showsUserInterface: true,
+      ),
+    ],
   );
 
   final platformDetails = NotificationDetails(android: androidDetails);
@@ -51,126 +71,79 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   );
 }
 
+
+// Init FCM
 Future<void> initFirebaseMessaging(
-  BuildContext context,
-  WidgetRef ref,
-  AudioPlayer audioPlayer,
-) async {
+    GlobalKey<NavigatorState> navigatorKey,
+    WidgetRef ref,
+    ) async {
   await Firebase.initializeApp();
 
   // Local notifications init
   const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
   const initSettings = InitializationSettings(android: androidInit);
-  await flutterLocalNotificationsPlugin.initialize(initSettings);
 
-  // Android channel create
+  await flutterLocalNotificationsPlugin.initialize(
+    initSettings,
+    onDidReceiveNotificationResponse: (details) async {
+      final data = details.payload != null ? jsonDecode(details.payload!) : null;
+      if (data == null) return;
+
+      if (details.actionId == 'accept_action') {
+        final BuildContext? context = navigatorKey.currentContext;
+        if (context == null || !context.mounted) {
+          context?.go('/onTrip', extra: data); // example
+        }
+      } else if (details.actionId == 'reject_action') {
+        // Cancel ride
+        SharedPrefsHelper.clearBookingId();
+      }
+    },
+  );
+
+
+  // Android channel creation
   await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin
-      >()
-      ?.createNotificationChannel(channel);
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(rideRequestChannel);
 
   // Background handler
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  // iOS presentation options
+  // iOS foreground options
   await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
     alert: true,
     badge: true,
     sound: true,
   );
 
-  // --- Foreground listener ---
-  // FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-  //   final data = message.data;
-  //
-  //   final driverStatus = ref.read(driverStatusProvider);
-  //   if (driverStatus != "OL") return;
-  //   // Cancel ride
-  //   if ((data['status'] ?? '') == 'cancel ride') {
-  //     await audioPlayer.stop();
-  //     ref.read(rideRequestProvider.notifier).state = null;
-  //     ref.read(tripProvider.notifier).reset();
-  //
-  //     if (context.mounted) {
-  //       final rideRequest = ref.read(rideRequestProvider);
-  //       showRideCancelledDialog(context, rideRequest, ref, audioPlayer);
-  //     }
-  //     return;
-  //   }
-  //
-  //   // New ride request
-  //   final pickup = data['pickup'] ?? '';
-  //   final drop = data['drop'] ?? '';
-  //   final fare = (double.tryParse(data['fare'] ?? '0') ?? 0).toInt();
-  //   final bookingId = int.tryParse(data['bookingId'] ?? '0') ?? 0;
-  //   final pickuplatlong = data['pickuplatlong'] ?? '';
-  //   final droplatlong = data['droplatlong'] ?? '';
-  //   final cusMobile = data['userMobNo'] ?? '';
-  //   final userId = data['userId'] ?? '';
-  //
-  //   if (driverStatus == "OL") {
-  //     ref.read(rideRequestProvider.notifier).state = RideRequest(
-  //       pickup: pickup,
-  //       drop: drop,
-  //       pickuplatlong: pickuplatlong,
-  //       droplatlong: droplatlong,
-  //       fare: fare,
-  //       bookingId: bookingId,
-  //       fcmToken: data['token'] ?? '',
-  //       cusMobile: cusMobile,
-  //       userId: userId,
-  //     );
-  //
-  //     await audioPlayer.setReleaseMode(ReleaseMode.loop);
-  //     await audioPlayer.play(AssetSource(Strings.rideRequestSound));
-  //   }
-  //
-  //   // Local notification
-  //   flutterLocalNotificationsPlugin.show(
-  //     bookingId,
-  //     'New Ride Request',
-  //     '$pickup → $drop',
-  //     NotificationDetails(
-  //       android: AndroidNotificationDetails(
-  //         channel.id,
-  //         channel.name,
-  //         channelDescription: channel.description,
-  //         importance: Importance.high,
-  //         priority: Priority.high,
-  //         icon: '@mipmap/ic_launcher',
-  //         fullScreenIntent: true,
-  //       ),
-  //     ),
-  //     payload: jsonEncode(data),
-  //   );
-  // });
-
+  // Foreground listener
   FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
     final data = message.data;
-    // final driverStatus = ref.read(driverStatusProvider);
-    //
-    // if (driverStatus == "OF") return;
+    final BuildContext? context = navigatorKey.currentContext;
 
-    // Cancel ride
-    try {
+    if (context == null || !context.mounted) {
+      print('Firebase onMessage: Navigator Context is not available, skipping message processing.');
+      return;
+    }
+
+    String driverStatus = await SharedPrefsHelper.getDriverStatus() ?? "OF";
+    final AudioPlayer audioPlayer = AudioPlayer();
+    if (driverStatus == "RB") {
       if ((data['status'] ?? '') == 'cancel_ride') {
-
         if (context.mounted) {
-          showRideCancelledDialog(
-            context,
-            ref.read(rideRequestProvider),
-            ref,
-            audioPlayer,
-          );
+          showRideCancelledDialog(context);
         }
         return;
       }
     }
-    catch(e){
-
+    if (driverStatus == "OF") {
+      return;
     }
-    // 🚖 New Ride request
+
+
+
+    // New ride request
     final rideRequest = RideRequest(
       pickup: data['pickup'] ?? '',
       drop: data['drop'] ?? '',
@@ -184,97 +157,193 @@ Future<void> initFirebaseMessaging(
     );
 
     final int popupDuration = int.tryParse(data['duration'] ?? '30') ?? 30;
-    // Update state
-    ref.read(rideRequestProvider.notifier).state = rideRequest;
+
+    try {
+      ref.read(rideRequestProvider.notifier).state = rideRequest;
+    } catch (e) {
+      print('Error updating ride request state with disposed ref: $e');
+      return; // Stop processing if state can't be updated.
+    }
 
     // Play ringtone
     await audioPlayer.setReleaseMode(ReleaseMode.loop);
     await audioPlayer.play(AssetSource(Strings.rideRequestSound));
 
-    // 🚨 Global popup (works on any screen)
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        Future.delayed(Duration(seconds: popupDuration), () {
-          if (Navigator.canPop(context)) {
-            Navigator.of(context).pop();
-            ref.read(rideRequestProvider.notifier).state = null;
-            audioPlayer.stop();
-          }
-        });
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          insetPadding: const EdgeInsets.all(24),
-          contentPadding: EdgeInsets.zero,
-          content: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: double.infinity,
-              maxHeight: 300,
+    // Show dialog in foreground
+    if (context.mounted) {
+      bool isRideRequestDialogActive = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (requestContext) {
+          Future.delayed(Duration(seconds: popupDuration), () {
+            if (isRideRequestDialogActive && Navigator.of(requestContext).canPop()) {
+              Navigator.of(requestContext).pop();
+              try {
+                ref.read(rideRequestProvider.notifier).state = null;
+              } catch (e) {
+                print('Cleanup ref read failed: $e');
+              }
+              audioPlayer.stop();
+            }
+          });
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-            child: RideRequestCard(
-              rideRequest: rideRequest,
-              audioPlayer: audioPlayer,
+            insetPadding: const EdgeInsets.all(24),
+            contentPadding: EdgeInsets.zero,
+            content: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: double.infinity,
+                maxHeight: 300,
+              ),
+              child: RideRequestCard(
+                rideRequest: rideRequest,
+                audioPlayer: audioPlayer,
+                requiredContext: requestContext,
+              ),
             ),
-          ),
-        );
-      },
-    );
+          );
+        },
+      ).then((_) {
+        isRideRequestDialogActive = false;
+      });
+    }
   });
 
-  // When tapped on notification (background)
-  FirebaseMessaging.onMessageOpenedApp.listen((message) {
-    print("Opened from background: ${message.data}");
+  // Notification tap (background)
+  FirebaseMessaging.onMessageOpenedApp.listen((message) async {
+    final data = message.data;
+    final BuildContext? context = navigatorKey.currentContext;
+    final AudioPlayer audioPlayer = AudioPlayer();
+    if (context == null || !context.mounted) {
+      print('Firebase onMessageOpenedApp: Context is not mounted, skipping.');
+      return;
+    }
+    String driverStatus = await SharedPrefsHelper.getDriverStatus() ?? "OF";
+
+    if (driverStatus == "OF") {
+      return;
+    }
+
+
+    final rideRequest = RideRequest(
+      pickup: data['pickup'] ?? '',
+      drop: data['drop'] ?? '',
+      pickuplatlong: data['pickuplatlong'] ?? '',
+      droplatlong: data['droplatlong'] ?? '',
+      fare: (double.tryParse(data['fare'] ?? '0') ?? 0).toInt(),
+      bookingId: int.tryParse(data['bookingId'] ?? '0') ?? 0,
+      fcmToken: data['token'] ?? '',
+      cusMobile: data['userMobNo'] ?? '',
+      userId: data['userId'] ?? '',
+    );
+
+    ref.read(rideRequestProvider.notifier).state = rideRequest;
+
+    // Play sound
+    await audioPlayer.setReleaseMode(ReleaseMode.loop);
+    await audioPlayer.play(AssetSource(Strings.rideRequestSound));
+
+    // Show the same dialog as foreground
+    if (context.mounted) {
+      bool isRideRequestDialogActive = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (requestContext) {
+          Future.delayed(Duration(seconds: int.tryParse(data['duration'] ?? '30') ?? 30), () {
+            // 🛑 NEW CHECK: Flag இன்னும் True ஆக இருக்கிறதா என்று சோதிக்கவும்.
+            if (isRideRequestDialogActive && Navigator.of(requestContext).canPop()) {
+              Navigator.of(requestContext).pop();
+              ref.read(rideRequestProvider.notifier).state = null;
+              audioPlayer.stop();
+            }
+          });
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            insetPadding: const EdgeInsets.all(24),
+            contentPadding: EdgeInsets.zero,
+            content: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: double.infinity, maxHeight: 300),
+              child: RideRequestCard(
+                rideRequest: rideRequest,
+                audioPlayer: audioPlayer,
+                requiredContext: requestContext,
+              ),
+            ),
+          );
+        },
+      ).then((_) {
+        isRideRequestDialogActive = false;
+      });
+    }
   });
+
 }
 
+// Ride cancelled dialog
+// Ride cancelled dialog (வரி 293-இல் இருந்து)
 void showRideCancelledDialog(
-  BuildContext context,
-  RideRequest? rideRequest,
-  WidgetRef ref,
-  AudioPlayer audioPlayer,
-) {
+    BuildContext context,
+    ) {
+  if (!context.mounted) return;
+
+  // First: close any open dialogs
+  if (Navigator.of(context, rootNavigator: true).canPop()) {
+    Navigator.of(context, rootNavigator: true).pop();
+  }
+
   showGeneralDialog(
     context: context,
     barrierDismissible: false,
     barrierLabel: "Ride Cancelled",
-    transitionDuration: const Duration(milliseconds: 300),
-    pageBuilder: (context, animation, secondaryAnimation) {
+    transitionDuration: const Duration(milliseconds: 350),
+    pageBuilder: (dialogContext, animation, secondaryAnimation) {
       return Center(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.85,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 20,
-                offset: Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 25,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.redAccent.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.cancel_outlined,
-                    color: Colors.redAccent,
-                    size: 60,
+                // Animated cancel icon
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.7, end: 1.0),
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeOutBack,
+                  builder: (context, scale, child) {
+                    return Transform.scale(scale: scale, child: child);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.cancel_outlined,
+                      size: 64,
+                      color: Colors.redAccent,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
+
                 const Text(
                   "Ride Cancelled",
                   style: TextStyle(
@@ -284,6 +353,7 @@ void showRideCancelledDialog(
                   ),
                 ),
                 const SizedBox(height: 12),
+
                 const Text(
                   "The customer has cancelled this ride.",
                   textAlign: TextAlign.center,
@@ -293,20 +363,8 @@ void showRideCancelledDialog(
                     height: 1.4,
                   ),
                 ),
-                if (rideRequest != null) ...[
-                  Divider(color: Colors.grey.shade300, thickness: 1),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Pickup: ${rideRequest.pickup}\nDrop: ${rideRequest.drop}\nFare: ₹${rideRequest.fare}",
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
+                const SizedBox(height: 24),
+
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -316,18 +374,20 @@ void showRideCancelledDialog(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      elevation: 3,
+                      elevation: 4,
                     ),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      SharedPrefsHelper.clearBookingId();
-                      SharedPrefsHelper.clearUserId();
-                      SharedPrefsHelper.clearTripData();
-                      SharedPrefsHelper.clearOngoingTrip();
-                      ref.read(tripProvider.notifier).reset();
-                      Future.delayed(Duration.zero, () {
+                    onPressed: () async {
+                      // clear stored data
+                      await SharedPrefsHelper.clearBookingId();
+                      await SharedPrefsHelper.clearUserId();
+                      await SharedPrefsHelper.clearTripData();
+                      await SharedPrefsHelper.clearOngoingTrip();
+                      await SharedPrefsHelper.setDriverStatus("OL");
+
+                      if (context.mounted) {
+                        Navigator.of(context, rootNavigator: true).pop();
                         context.go('/driverHome');
-                      });
+                      }
                     },
                     child: const Text(
                       "OK",
@@ -342,10 +402,21 @@ void showRideCancelledDialog(
       );
     },
     transitionBuilder: (context, animation, secondaryAnimation, child) {
-      return ScaleTransition(
-        scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
-        child: FadeTransition(opacity: animation, child: child),
+      // Fade + Scale transition
+      return FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutBack,
+          ),
+          child: child,
+        ),
       );
     },
   );
 }
+
+
+
+//

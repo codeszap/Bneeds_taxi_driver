@@ -1,7 +1,9 @@
 import 'package:bneeds_taxi_driver/screens/home/widget/ride_request_card.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bneeds_taxi_driver/utils/storage.dart';
 import '../../models/rideRequest.dart';
+import '../../services/RideOverlayHelper.dart';
 import '../../utils/dialogs.dart';
 import '../RideRequestScreen.dart';
 import '../onTrip/TripNotifier.dart';
@@ -22,18 +24,32 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
   void initState() {
     super.initState();
 
-    _getCurrentLocation();
-
     // Call async setup inside Future.microtask
     Future.microtask(() async {
+      bool granted = await FlutterOverlayWindow.isPermissionGranted();
+      if (!granted) {
+        await FlutterOverlayWindow.requestPermission();
+      }
+
       final savedStatus = await SharedPrefsHelper.getDriverStatus();
       final statusToSet = savedStatus ?? "OF";
-      await setDriverStatus(statusToSet);
-      initFirebaseMessaging(context, ref, _audioPlayer);
+      if (ref.read(driverStatusProvider) != statusToSet) {
+        await setDriverStatus(statusToSet);
+      }
+      if (granted && statusToSet == "OL") {
+        final pos = SharedPrefsHelper.getOverlayPosition();
+        final savedX = pos["x"]?.toDouble();
+        final savedY = pos["y"]?.toDouble();
+        await RideOverlayHelper.showOverlay(
+          context,
+          posX: savedX,
+          posY: savedY,
+        );
+      }
+      initFirebaseMessaging(rootNavigatorKey, ref);
     });
-
+    _getCurrentLocation();
   }
-
 
   @override
   void dispose() {
@@ -41,257 +57,6 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
     _audioPlayer.dispose();
     super.dispose();
   }
-
-  // void _listenForFCMMessages() {
-  //   FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-  //     if (message.data.isNotEmpty) {
-  //       final pickup = message.data['pickup'] ?? '';
-  //       final drop = message.data['drop'] ?? '';
-  //       final fareStr = message.data['fare'] ?? '0';
-  //       final fare = (double.tryParse(fareStr.toString()) ?? 0).toInt();
-  //       final bookingId = int.tryParse(message.data['bookingId'] ?? '0') ?? 0;
-  //       final pickuplatlong = message.data['pickuplatlong'] ?? '';
-  //       final droplatlong = message.data['droplatlong'] ?? '';
-  //       final cusMobile = message.data['userMobNo'] ?? '';
-  //       final userId = message.data['userId'] ?? '';
-  //
-  //       final status = ref.read(driverStatusProvider); // Check if Online
-  //       if (status == "OL") {
-  //         // Only show if driver is online
-  //         // Update the provider to show popup
-  //         ref.read(rideRequestProvider.notifier).state = RideRequest(
-  //           pickup: pickup,
-  //           drop: drop,
-  //           pickuplatlong: pickuplatlong.toString(),
-  //           droplatlong: droplatlong.toString(),
-  //           fare: fare,
-  //           bookingId: bookingId,
-  //           fcmToken: message.data['token'] ?? '',
-  //           cusMobile: cusMobile,
-  //           userId: userId,
-  //         );
-  //
-  //         // Play looping ringtone
-  //         await _audioPlayer.setReleaseMode(ReleaseMode.loop);
-  //         await _audioPlayer.play(AssetSource(Strings.rideRequestSound));
-  //       }
-  //     }
-  //   });
-  // }
-
-  // void _listenForFCMMessages() {
-  //   FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-  //     if (message.data.isNotEmpty) {
-  //       final status = message.data['status'] ?? '';
-  //
-  //       if (status == 'cancel ride') {
-  //         // Stop ringtone
-  //         await _audioPlayer.stop();
-  //
-  //         // Clear ride request provider
-  //         ref.read(rideRequestProvider.notifier).state = null;
-  //
-  //         // Reset trip provider
-  //         ref.read(tripProvider.notifier).reset();
-  //
-  //         // Show cancellation dialog
-  //         if (mounted) {
-  //           final rideRequest = ref.read(rideRequestProvider); // ✅ get current ride request
-  //
-  //           showGeneralDialog(
-  //             context: context,
-  //             barrierDismissible: false,
-  //             barrierLabel: "Ride Cancelled",
-  //             transitionDuration: const Duration(milliseconds: 300),
-  //             pageBuilder: (context, animation, secondaryAnimation) {
-  //               return Center(
-  //                 child: Container(
-  //                   width: MediaQuery.of(context).size.width * 0.85,
-  //                   padding: const EdgeInsets.all(24),
-  //                   decoration: BoxDecoration(
-  //                     color: Colors.white,
-  //                     borderRadius: BorderRadius.circular(20),
-  //                     boxShadow: [
-  //                       BoxShadow(
-  //                         color: Colors.black26,
-  //                         blurRadius: 20,
-  //                         offset: Offset(0, 10),
-  //                       ),
-  //                     ],
-  //                   ),
-  //                   child: Material(
-  //                     color: Colors.transparent,
-  //                     child: Column(
-  //                       mainAxisSize: MainAxisSize.min,
-  //                       children: [
-  //                         // Animated icon
-  //                         Container(
-  //                           padding: const EdgeInsets.all(20),
-  //                           decoration: BoxDecoration(
-  //                             color: Colors.redAccent.withOpacity(0.1),
-  //                             shape: BoxShape.circle,
-  //                           ),
-  //                           child: const Icon(
-  //                             Icons.cancel_outlined,
-  //                             color: Colors.redAccent,
-  //                             size: 60,
-  //                           ),
-  //                         ),
-  //                         const SizedBox(height: 16),
-  //
-  //                         // Title
-  //                         const Text(
-  //                           "Ride Cancelled",
-  //                           style: TextStyle(
-  //                             fontSize: 22,
-  //                             fontWeight: FontWeight.bold,
-  //                             color: Colors.black87,
-  //                           ),
-  //                         ),
-  //                         const SizedBox(height: 12),
-  //
-  //                         // Message
-  //                         const Text(
-  //                           "The customer has cancelled this ride.",
-  //                           textAlign: TextAlign.center,
-  //                           style: TextStyle(
-  //                             fontSize: 16,
-  //                             color: Colors.black54,
-  //                             height: 1.4,
-  //                           ),
-  //                         ),
-  //                         const SizedBox(height: 12),
-  //
-  //                         // Optional ride details
-  //                         if (rideRequest != null) ...[
-  //                           Divider(color: Colors.grey.shade300, thickness: 1),
-  //                           const SizedBox(height: 8),
-  //                           Text(
-  //                             "Pickup: ${rideRequest.pickup}\nDrop: ${rideRequest.drop}\nFare: ₹${rideRequest.fare}",
-  //                             textAlign: TextAlign.center,
-  //                             style: const TextStyle(
-  //                               fontSize: 15,
-  //                               color: Colors.black87,
-  //                               fontWeight: FontWeight.w500,
-  //                             ),
-  //                           ),
-  //                           const SizedBox(height: 12),
-  //                         ],
-  //
-  //                         // OK button
-  //                         SizedBox(
-  //                           width: double.infinity,
-  //                           child: ElevatedButton(
-  //                             style: ElevatedButton.styleFrom(
-  //                               backgroundColor: Colors.redAccent,
-  //                               padding: const EdgeInsets.symmetric(vertical: 16),
-  //                               shape: RoundedRectangleBorder(
-  //                                 borderRadius: BorderRadius.circular(12),
-  //                               ),
-  //                               elevation: 3,
-  //                             ),
-  //                             onPressed: () {
-  //                               Navigator.of(context).pop(); // close dialog
-  //                               Future.delayed(Duration.zero, () {
-  //                                 context.go('/driverHome');
-  //                               });
-  //                             },
-  //                             child: const Text(
-  //                               "OK",
-  //                               style: TextStyle(fontSize: 18, color: Colors.white),
-  //                             ),
-  //                           ),
-  //                         ),
-  //                       ],
-  //                     ),
-  //                   ),
-  //                 ),
-  //               );
-  //             },
-  //             transitionBuilder: (context, animation, secondaryAnimation, child) {
-  //               return ScaleTransition(
-  //                 scale: CurvedAnimation(
-  //                   parent: animation,
-  //                   curve: Curves.easeOutBack,
-  //                 ),
-  //                 child: FadeTransition(
-  //                   opacity: animation,
-  //                   child: child,
-  //                 ),
-  //               );
-  //             },
-  //           );
-  //         }
-  //
-  //
-  //
-  //         return; // skip further processing
-  //       }
-  //
-  //       // Existing ride request logic
-  //       final pickup = message.data['pickup'] ?? '';
-  //       final drop = message.data['drop'] ?? '';
-  //       final fareStr = message.data['fare'] ?? '0';
-  //       final fare = (double.tryParse(fareStr.toString()) ?? 0).toInt();
-  //       final bookingId = int.tryParse(message.data['bookingId'] ?? '0') ?? 0;
-  //       final pickuplatlong = message.data['pickuplatlong'] ?? '';
-  //       final droplatlong = message.data['droplatlong'] ?? '';
-  //       final cusMobile = message.data['userMobNo'] ?? '';
-  //       final userId = message.data['userId'] ?? '';
-  //
-  //       final driverStatus = ref.read(driverStatusProvider);
-  //       if (driverStatus == "OL") {
-  //         ref.read(rideRequestProvider.notifier).state = RideRequest(
-  //           pickup: pickup,
-  //           drop: drop,
-  //           pickuplatlong: pickuplatlong,
-  //           droplatlong: droplatlong,
-  //           fare: fare,
-  //           bookingId: bookingId,
-  //           fcmToken: message.data['token'] ?? '',
-  //           cusMobile: cusMobile,
-  //           userId: userId,
-  //         );
-  //
-  //         // Play looping ringtone
-  //         await _audioPlayer.setReleaseMode(ReleaseMode.loop);
-  //         await _audioPlayer.play(AssetSource(Strings.rideRequestSound));
-  //       }
-  //     }
-  //   });
-  // }
-
-  LatLng stringToLatLng(String s) {
-    final parts = s.split(',');
-    return LatLng(double.parse(parts[0]), double.parse(parts[1]));
-  }
-  // Future<void> _checkOngoingTrip() async {
-  //   final tripData = await SharedPrefsHelper.getTripData();
-  //   if (tripData != null) {
-  //     // Update trip provider
-  //     final pickupLatLng = stringToLatLng(tripData['pickupLatLng']);
-  //     final dropLatLng = stringToLatLng(tripData['dropLatLng']);
-  //     ref.read(tripProvider.notifier).acceptRide(
-  //       tripData['pickup'],
-  //       tripData['drop'],
-  //       tripData['fare'],
-  //       pickupLatLng,
-  //       dropLatLng,
-  //       tripData['otp'],
-  //       tripData['bookingId'],
-  //       tripData['fcmToken'],
-  //       tripData['userId'],
-  //       tripData['cusMobile'],
-  //       tripData['status'],
-  //       //true
-  //     );
-  //
-  //     // Navigate to Trip Screen
-  //     WidgetsBinding.instance.addPostFrameCallback((_) {
-  //       router.go(AppRoutes.trip);
-  //     });
-  //   }
-  // }
 
   Future<void> _getCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -327,23 +92,6 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
     );
   }
 
-  String generateOtp() {
-    final random = Random();
-    int otp = 1000 + random.nextInt(9000);
-    return otp.toString();
-  }
-
-  LatLng parseLatLng(String latLongStr) {
-    // Customer is sending "lat,lng" format
-    final parts = latLongStr.split(',');
-    if (parts.length != 2) {
-      throw FormatException("Invalid LatLong format: $latLongStr");
-    }
-    final lat = double.parse(parts[0]);
-    final lng = double.parse(parts[1]);
-    return LatLng(lat, lng);
-  }
-
   Future<void> setDriverStatus(String newStatus) async {
     // First, show CK state in UI
     ref.read(driverStatusProvider.notifier).state = "CK";
@@ -371,20 +119,19 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
         // ❌ revert if failed
         final oldStatus = await SharedPrefsHelper.getDriverStatus() ?? "OF";
         ref.read(driverStatusProvider.notifier).state = oldStatus;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("❌ ${response.message}")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("❌ ${response.message}")));
       }
     } catch (e) {
       // ❌ revert on exception
       final oldStatus = await SharedPrefsHelper.getDriverStatus() ?? "OF";
       ref.read(driverStatusProvider.notifier).state = oldStatus;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -471,41 +218,22 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
                   // ✅ Play toggle sound
                   await _audioPlayer.play(AssetSource(Strings.onOffSound));
                   await setDriverStatus(newStatus);
-                  // try {
-                  //   final position = await Geolocator.getCurrentPosition(
-                  //     desiredAccuracy: LocationAccuracy.high,
-                  //   );
-                  //   final fromLatLong =
-                  //       "${position.latitude},${position.longitude}";
-                  //
-                  //   final repo = ref.read(driverRepositoryProvider);
-                  //   final riderId = SharedPrefsHelper.getRiderId();
-                  //
-                  //   final response = await repo.updateDriverStatus(
-                  //     riderId: riderId,
-                  //     riderStatus: newStatus,
-                  //     fromLatLong: fromLatLong,
-                  //   );
-                  //
-                  //   if (response.status == "success") {
-                  //     ref.read(driverStatusProvider.notifier).state = newStatus;
-                  //     await SharedPrefsHelper.setDriverStatus(newStatus);
-                  //   } else {
-                  //     ref.read(driverStatusProvider.notifier).state = val
-                  //         ? "OF"
-                  //         : "OL";
-                  //     ScaffoldMessenger.of(context).showSnackBar(
-                  //       SnackBar(content: Text("❌ ${response.message}")),
-                  //     );
-                  //   }
-                  // } catch (e) {
-                  //   ref.read(driverStatusProvider.notifier).state = val
-                  //       ? "OF"
-                  //       : "OL";
-                  //   ScaffoldMessenger.of(
-                  //     context,
-                  //   ).showSnackBar(SnackBar(content: Text("Error: $e")));
-                  // }
+                  bool granted =
+                      await FlutterOverlayWindow.isPermissionGranted();
+                  if (granted && newStatus == "OL") {
+                    final pos =
+                        SharedPrefsHelper.getOverlayPosition(); // Map {"x": .., "y": ..}
+                    final savedX = pos["x"]?.toDouble();
+                    final savedY = pos["y"]?.toDouble();
+                    await RideOverlayHelper.showOverlay(
+                      context,
+                      posX: savedX,
+                      posY: savedY,
+                    );
+                  }
+                  if (newStatus == "OF") {
+                    await RideOverlayHelper.closeOverlay();
+                  }
                 },
               ),
             ),
@@ -529,16 +257,6 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
                 child: Icon(Icons.my_location, color: textColor),
               ),
             ),
-
-            // Ride request popup
-            // if (rideRequest != null && status == "OL")
-            //   RideRequestCard(
-            //     rideRequest: rideRequest,
-            //     audioPlayer: _audioPlayer,
-            //   ),
-
-            // Bottom panel
-            // Bottom panel
             if (rideRequest == null)
               Align(
                 alignment: Alignment.bottomCenter,
@@ -569,7 +287,7 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
                             ),
                           )
                         : status ==
-                              "CK" // ✅ new state
+                              "CK"
                         ? const Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

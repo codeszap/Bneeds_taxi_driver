@@ -198,6 +198,7 @@ class _TripCompleteScreenState extends ConsumerState<TripCompleteScreen> {
                                           .read(driverStatusProvider.notifier)
                                           .state =
                                       "OL";
+                                  await SharedPrefsHelper.setDriverStatus("OL");
 
                                   // Clear SharedPrefs in background
                                   SharedPrefsHelper.clearBookingId();

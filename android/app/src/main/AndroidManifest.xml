@@ -11,6 +11,8 @@ d
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.CALL_PHONE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
 
     <application
         android:label="Ram Meter Driver"
@@ -25,6 +27,15 @@ d
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <service android:name="flutter.overlay.window.flutter_overlay_window.OverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="explanation_for_special_use"/>
+        </service>
+
+        <service android:name=".OverlayService" android:exported="false" />
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
@@ -61,6 +72,8 @@ d
             android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:excludeFromRecents="true"/>
+
+
 
 
         <meta-data
