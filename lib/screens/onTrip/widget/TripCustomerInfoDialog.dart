@@ -8,16 +8,20 @@ import '../../../utils/storage.dart';
 import '../TripNotifier.dart';
 
 // Dialog Widget
-class TripCustomerInfoDialog extends StatelessWidget {
+class TripCustomerInfoDialog extends ConsumerWidget {
   final TripState trip;
   final UserProfile? userProfile;
   final String? customerToken;
 
-  const TripCustomerInfoDialog({Key? key, required this.trip, this.userProfile, required this.customerToken})
-    : super(key: key);
+  const TripCustomerInfoDialog({
+    Key? key,
+    required this.trip,
+    this.userProfile,
+    required this.customerToken,
+  }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 8,
@@ -236,37 +240,54 @@ class TripCustomerInfoDialog extends StatelessWidget {
                               );
                               container.read(tripProvider.notifier).reset();
                               if (context.mounted) {
+                                final position = await Geolocator.getCurrentPosition(
+                                  desiredAccuracy: LocationAccuracy.high,
+                                );
+                                final fromLatLong = "${position.latitude},${position.longitude}";
 
-                                FirebasePushService.sendPushNotification(
-                                  fcmToken: customerToken!,
-                                  title: "Rider Cancel Ride",
-                                  body: "Ride Cancelled By Rider",
-                                  data: {
-                                    "status" :"cancel ride",
-                                    "reason" : "Unable to pickup"
-                                  },
-                                );
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      "Ride cancelled successfully ✅",
-                                    ),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                                container.read(driverStatusProvider.notifier)
-                                    .state =
-                                "OL";
+                                container
+                                        .read(driverStatusProvider.notifier)
+                                        .state =
+                                    "OL";
                                 await SharedPrefsHelper.setDriverStatus("OL");
-                                Navigator.of(
-                                  context,
-                                ).pop(); // close TripCustomerInfoDialog
-                                // Navigate home
-
-                                Future.delayed(
-                                  Duration.zero,
-                                  () => router.go(AppRoutes.driverHome),
+                                final repo = ref.read(driverRepositoryProvider);
+                                final riderId = SharedPrefsHelper.getRiderId();
+                                final response = await repo.updateDriverStatus(
+                                  riderId: riderId,
+                                  riderStatus: "OL",
+                                  fromLatLong: fromLatLong,
                                 );
+                                if(response != null){
+                                  FirebasePushService.sendPushNotification(
+                                    fcmToken: customerToken!,
+                                    title: "Rider Cancel Ride",
+                                    body: "Ride Cancelled By Rider",
+                                    data: {
+                                      "status": "cancel ride",
+                                      "reason": "Unable to pickup",
+                                    },
+                                  );
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        "Ride cancelled successfully ✅",
+                                      ),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+
+                                  Navigator.of(
+                                    context,
+                                  ).pop(); // close TripCustomerInfoDialog
+                                  // Navigate home
+
+                                  Future.delayed(
+                                    Duration.zero,
+                                        () => router.go(AppRoutes.driverHome),
+                                  );
+                                }
+
+
                               }
                             } else {
                               if (context.mounted) {

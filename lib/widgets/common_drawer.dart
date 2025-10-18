@@ -2,8 +2,7 @@ import 'package:bneeds_taxi_driver/utils/storage.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-
-
+import '../screens/onTrip/TripNotifier.dart';
 
 class CommonDrawer extends ConsumerWidget {
   const CommonDrawer({super.key});
@@ -17,7 +16,6 @@ class CommonDrawer extends ConsumerWidget {
           ? SharedPrefsHelper.getDriverMobile()
           : "N/A",
     };
-
   }
 
   @override
@@ -49,14 +47,19 @@ class CommonDrawer extends ConsumerWidget {
                   padding: const EdgeInsets.all(20),
                   color: bgColor,
                   child: const Center(
-                    child: CircularProgressIndicator(color: AppColors.buttonText),
+                    child: CircularProgressIndicator(
+                      color: AppColors.buttonText,
+                    ),
                   ),
                 );
               }
 
               final user = snapshot.data!;
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 20,
+                ),
                 color: bgColor,
                 child: Column(
                   children: [
@@ -66,7 +69,11 @@ class CommonDrawer extends ConsumerWidget {
                         CircleAvatar(
                           radius: 30,
                           backgroundColor: AppColors.buttonText,
-                          child: const Icon(Icons.person, size: 30, color: Colors.black),
+                          child: const Icon(
+                            Icons.person,
+                            size: 30,
+                            color: Colors.black,
+                          ),
                         ),
                         const SizedBox(width: 16),
                         Column(
@@ -157,12 +164,27 @@ class CommonDrawer extends ConsumerWidget {
                 ),
               ),
               onPressed: () async {
-                await SharedPrefsHelper.clearAll();
+                final trip = ref.read(tripProvider);
+                final repo = ref.read(driverRepositoryProvider);
+                final riderId = SharedPrefsHelper.getRiderId();
+                final fromLatLong =
+                    "${trip.driverCurrentLatLng.latitude},${trip.driverCurrentLatLng.longitude}";
 
-                if (context.mounted) {
-                  final container = ProviderScope.containerOf(context);
-                  container.invalidate(fetchProfileProvider);
-                 context.go(AppRoutes.login);
+                final response = await repo.updateDriverStatus(
+                  riderId: riderId,
+                  riderStatus: "OF",
+                  fromLatLong: fromLatLong,
+                );
+
+                if (response != null) {
+                  if (context.mounted) {
+                    ref.read(driverStatusProvider.notifier).state = "OF";
+                    await SharedPrefsHelper.setDriverStatus("OF");
+                    final container = ProviderScope.containerOf(context);
+                    container.invalidate(fetchProfileProvider);
+                    context.go(AppRoutes.login);
+                  }
+                  await SharedPrefsHelper.clearAll();
                 }
               },
             ),
