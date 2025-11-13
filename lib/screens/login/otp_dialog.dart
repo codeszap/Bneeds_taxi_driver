@@ -2,6 +2,8 @@ import 'package:bneeds_taxi_driver/config/auth_service.dart' as authService;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bneeds_taxi_driver/utils/storage.dart';
 
+import '../../utils/fcmHelper.dart';
+
 class OTPDialog extends StatefulWidget {
   final WidgetRef ref;
   const OTPDialog({super.key, required this.ref});
@@ -79,17 +81,23 @@ class _OTPDialogState extends State<OTPDialog> {
         // ✅ Save with isProfileCompleted
         await _saveMobileNo(mobileNo, username, userExists);
 
-        Navigator.pop(context); // close OTP dialog
-        print("User exists: $userExists");
+        // Navigator.pop(context); // close OTP dialog
+        // print("User exists: $userExists");
 
         if (userExists) {
+          await FcmHelper.syncTokenWithServer();
+          // context இன்னும் உயிர்ப்புடன் இருக்கிறதா என்று சரிபார்க்கவும்
+          if (!mounted) return;
           context.go(AppRoutes.driverHome);
         } else {
+          // context இன்னும் உயிர்ப்புடன் இருக்கிறதா என்று சரிபார்க்கவும்
+          if (!mounted) return;
           context.go(
             AppRoutes.driverProfile,
             extra: {'isNewUser': true},
           );
         }
+        Navigator.pop(context);
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

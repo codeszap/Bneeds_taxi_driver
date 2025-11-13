@@ -145,3 +145,31 @@ Future<void> _initPermissions() async {
     // Prompt user to open settings
   }
 }
+
+
+// import 'package:bneeds_taxi_driver/sample.dart';
+// import 'package:flutter/material.dart';
+// import 'package:flutter_riverpod/flutter_riverpod.dart';
+// // Step 2: Main function to start the app
+// void main() {
+//   // Unga MyApp-eh ProviderScope-la wrap pannunga
+//   runApp(const ProviderScope(child: MyApp()));
+// }
+//
+// // Step 3: Root Widget (MyApp) - Usually a StatelessWidget
+// class MyApp extends StatelessWidget {
+//   const MyApp({super.key});
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     // MaterialApp provides Material Design styling and features (like navigation)
+//     return MaterialApp(
+//       title: 'My First App',
+//       theme: ThemeData(
+//         primarySwatch: Colors.blue,
+//       ),
+//       home:  Demo(),
+//     );
+//   }
+// }
+

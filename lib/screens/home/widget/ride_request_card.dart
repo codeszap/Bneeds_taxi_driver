@@ -1,6 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bneeds_taxi_driver/utils/storage.dart';
 
+import '../../../firebase/TripFirebaseService.dart';
+import '../../../models/Api Modal/AcceptBookingRequest.dart';
 import '../../../models/TripState.dart';
 import '../../../models/rideRequest.dart';
 import '../../../utils/dialogs.dart';
@@ -17,25 +20,9 @@ class RideRequestCard extends ConsumerWidget {
   const RideRequestCard({
     super.key,
     required this.rideRequest,
-    required this.audioPlayer, required this.requiredContext,
+    required this.audioPlayer,
+    required this.requiredContext,
   });
-
-  String generateOtp() {
-    final random = Random();
-    int otp = 1000 + random.nextInt(9000);
-    return otp.toString();
-  }
-
-  LatLng parseLatLng(String latLongStr) {
-    // Customer is sending "lat,lng" format
-    final parts = latLongStr.split(',');
-    if (parts.length != 2) {
-      throw FormatException("Invalid LatLong format: $latLongStr");
-    }
-    final lat = double.parse(parts[0]);
-    final lng = double.parse(parts[1]);
-    return LatLng(lat, lng);
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -141,6 +128,7 @@ class RideRequestCard extends ConsumerWidget {
                       Navigator.pop(context);
                       audioPlayer.stop();
                       ref.read(rideRequestProvider.notifier).state = null;
+                      ref.read(tripProvider.notifier).reset();
                     },
                   ),
                 ),
@@ -155,40 +143,24 @@ class RideRequestCard extends ConsumerWidget {
   Future<void> _handleAccept(BuildContext rootContext, WidgetRef ref) async {
     final repo = ref.read(acceptBookingRepositoryProvider);
     final driverRepo = ref.read(driverRepositoryProvider);
-    final tripNotifier = ref.read(tripProvider.notifier);
     final rideRequestNotifier = ref.read(rideRequestProvider.notifier);
     final driverStatusNotifier = ref.read(driverStatusProvider.notifier);
-
     final riderId = SharedPrefsHelper.getRiderId();
     await SharedPrefsHelper.setBookingId(rideRequest.bookingId.toString());
-    await SharedPrefsHelper.setUserId(rideRequest.userId.toString());
-    final mobileNo = SharedPrefsHelper.getDriverMobile();
 
     try {
-      final response = await repo.getAcceptBookingStatus(
-        rideRequest.bookingId,
-        int.parse(riderId),
+      final apiResp = await repo.AcceptBookingStatus(
+        request: BookingRequest(
+          action: 'G',
+          bookingId: rideRequest.bookingId.toString(),
+          riderId: riderId,
+        ),
       );
-
-      if (response.isEmpty) {
-        if (rootContext.mounted) {
-          await ApiResponseDialog.show(
-            context: rootContext,
-            context2:requiredContext,
-            ref: ref,
-            status: 'error',
-            message: 'Something went wrong!',
-          );
-        }
-        return;
-      }
-
-      final apiResp = response.first;
 
       if (rootContext.mounted) {
         await ApiResponseDialog.show(
           context: rootContext,
-          context2:requiredContext,
+          context2: requiredContext,
           ref: ref,
           status: apiResp.status ?? 'error',
           message: apiResp.message ?? 'Unknown error',
@@ -196,86 +168,34 @@ class RideRequestCard extends ConsumerWidget {
       }
 
       if ((apiResp.status ?? '').toLowerCase() == 'success') {
-        final pickupLatLng = parseLatLng(rideRequest.pickuplatlong);
-        final dropLatLng = parseLatLng(rideRequest.droplatlong);
-        final otp = generateOtp();
-
-        // ✅ Trip provider update first
-        tripNotifier.acceptRide(
-          rideRequest.pickup,
-          rideRequest.drop,
-          rideRequest.fare,
-          pickupLatLng,
-          dropLatLng,
-          otp,
-          rideRequest.bookingId.toString(),
-          rideRequest.fcmToken,
-          rideRequest.userId,
-          rideRequest.cusMobile,
-          TripStatus.accepted,
-        );
-
-        // ✅ Clear request card
+        // ✅ Success — move to Trip Screen
         rideRequestNotifier.state = null;
-        // ✅ Navigate immediately (no wait)
         WidgetsBinding.instance.addPostFrameCallback((_) {
           router.go(AppRoutes.trip);
         });
-        // // --- Do heavy tasks in background ---
-        Future.microtask(() async {
-          // await SharedPrefsHelper.setTripData({
-          //   'pickup': rideRequest.pickup,
-          //   'drop': rideRequest.drop,
-          //   'fare': rideRequest.fare,
-          //   'pickupLatLng':
-          //       "${pickupLatLng.latitude},${pickupLatLng.longitude}",
-          //   'dropLatLng': "${dropLatLng.latitude},${dropLatLng.longitude}",
-          //   'otp': otp,
-          //   'bookingId': rideRequest.bookingId.toString(),
-          //   'fcmToken': rideRequest.fcmToken,
-          //   'userId': rideRequest.userId,
-          //   'cusMobile': rideRequest.cusMobile,
-          //   'status': TripStatus.accepted,
-          // });
 
-          final position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high,
-          );
-          final fromLatLong = "${position.latitude},${position.longitude}";
+        // Update driver status
+        final position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+        final fromLatLong = "${position.latitude},${position.longitude}";
 
-          final statusResp = await driverRepo.updateDriverStatus(
-            riderId: riderId,
-            riderStatus: "RB",
-            fromLatLong: fromLatLong,
-          );
+        final statusResp = await driverRepo.updateDriverStatus(
+          riderId: riderId,
+          riderStatus: "RB",
+          fromLatLong: fromLatLong,
+        );
 
-          if (statusResp.status == "success") {
-            driverStatusNotifier.state = "RB";
-            await SharedPrefsHelper.setDriverStatus("RB");
-          }
-
-          if (rideRequest.fcmToken.isNotEmpty) {
-            await FirebasePushService.sendPushNotification(
-              fcmToken: rideRequest.fcmToken,
-              title: "Ride Accepted ✅",
-              body: "Your ride request has been accepted by the driver.",
-              data: {
-                "bookingId": rideRequest.bookingId.toString(),
-                "status": "accepted",
-                "otp": otp,
-                "driverLatLong": fromLatLong,
-                "driverMobno": mobileNo,
-                "dropLatLong": rideRequest.droplatlong,
-              },
-            );
-          }
-        });
+        if (statusResp.status == "success") {
+          driverStatusNotifier.state = "RB";
+          await SharedPrefsHelper.setDriverStatus("RB");
+        }
       }
     } catch (e) {
       if (rootContext.mounted) {
         await ApiResponseDialog.show(
           context: rootContext,
-          context2:requiredContext,
+          context2: requiredContext,
           ref: ref,
           status: 'error',
           message: 'Failed to accept ride: $e',

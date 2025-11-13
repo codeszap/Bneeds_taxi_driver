@@ -1,92 +1,73 @@
-// import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import '../models/booking_model.dart';
-// import '../repositories/booking_repository.dart';
-
-// /// Repository provider
-// final bookingRepositoryProvider = Provider<BookingRepository>((ref) {
-//   return BookingRepository();
-// });
-
-// /// State provider for bookings
-// final bookingListProvider =
-//     StateNotifierProvider<BookingNotifier, List<BookingModel>>((ref) {
-//   final repo = ref.watch(bookingRepositoryProvider);
-//   return BookingNotifier(repo);
-// });
-
-// class BookingNotifier extends StateNotifier<List<BookingModel>> {
-//   final BookingRepository repository;
-
-//   BookingNotifier(this.repository) : super([]);
-
-
-//   Future<void> addBooking(BookingModel booking) async {
-//     await repository.addBooking(booking);
-
-//     // since no fetch API, just append to state
-//     state = [...state, booking];
-//   }
-// }
-
-
-// booking_provider.dart
+import 'package:bneeds_taxi_driver/models/Api%20Modal/AcceptBookingRequest.dart';
+import 'package:bneeds_taxi_driver/providers/params/booking_params.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/VehBookingFinal.dart';
+import '../models/BookingDetail.dart';
 import '../repositories/accept_booking_repository.dart';
 import '../models/ApiResponse.dart';
 
-// Repository provider
-final acceptBookingRepositoryProvider = Provider<AcceptBookingRepository>(
-  (ref) => AcceptBookingRepository(),
+/// Repository provider
+final acceptBookingRepositoryProvider = Provider<BookingRepository>(
+  (ref) => BookingRepository(),
 );
 
-// import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import '../models/booking_model.dart';
-// import '../repositories/booking_repository.dart';
-
-// /// Repository provider
-// final bookingRepositoryProvider = Provider<BookingRepository>((ref) {
-//   return BookingRepository();
-// });
-
-// /// State provider for bookings
-// final bookingListProvider =
-//     StateNotifierProvider<BookingNotifier, List<BookingModel>>((ref) {
-//   final repo = ref.watch(bookingRepositoryProvider);
-//   return BookingNotifier(repo);
-// });
-
-// class BookingNotifier extends StateNotifier<List<BookingModel>> {
-//   final BookingRepository repository;
-
-//   BookingNotifier(this.repository) : super([]);
-
-
-//   Future<void> addBooking(BookingModel booking) async {
-//     await repository.addBooking(booking);
-
-//     // since no fetch API, just append to state
-//     state = [...state, booking];
-//   }
-
-
-class BookingParams {
-  final int bookingId;
-  final int riderId;
-
-  BookingParams(this.bookingId, this.riderId);
-}
-class CompleteBookingParams {
-  final int bookingId;
-  final int distanceKms;
-
-  CompleteBookingParams(this.bookingId, this.distanceKms);
-}
-
-// Provider for accept booking
+/// ✅ Accept booking provider (returns a single ApiResponse)
 final acceptBookingProvider =
-    FutureProvider.family<List<ApiResponse>, BookingParams>((ref, params) {
-  final repository = ref.read(acceptBookingRepositoryProvider);
-  return repository.getAcceptBookingStatus(params.bookingId, params.riderId);
-});
+    FutureProvider.family<ApiResponse, BookingRequest>((ref, params) async {
+      final repository = ref.read(acceptBookingRepositoryProvider);
+      return repository.AcceptBookingStatus(request: params);
+    });
 
+/// ✅ Fetch booking details (still returns list)
+final fetchBookingDetailProvider =
+    FutureProvider.family<List<BookingDetail>, BookingParams>((
+      ref,
+      params,
+    ) async {
+      final repository = ref.read(acceptBookingRepositoryProvider);
+      return repository.fetchBookingDetail(params.bookingId, params.riderId);
+    });
+
+final updateTripStatusProvider =
+    FutureProvider.family<ApiResponse, RiderTripUpdateRequest>((
+      ref,
+      request,
+    ) async {
+      final repository = ref.read(acceptBookingRepositoryProvider);
+      return repository.updateTripStatus(requestBody: request);
+    });
+
+final calculateFareProvider =
+    FutureProvider.family<Map<String, dynamic>?, FareCalculationParams>((
+      ref,
+      params,
+    ) async {
+      final repository = ref.read(acceptBookingRepositoryProvider);
+      return repository.calculateFareForBooking(
+        bookingId: params.bookingId,
+        riderId: params.riderId,
+      );
+    });
+
+// booking_providers.dart
+// ...
+final finalBookingProvider =
+FutureProvider.family<ApiResponse, FinalBookingParams>((ref, params) async {
+  final repository = ref.read(acceptBookingRepositoryProvider);
+
+  // 1. FinalBooking Detail object create panrom (Inner object)
+  final FinalBooking finalBookingDetail = FinalBooking(
+    bookingId: params.bookingId,
+    finalAmt: params.finalAmt,
+    driverCurrentLatLong: params.driverCurrentLatLong,
+    riderId: params.riderId,
+    riderStatus: params.riderStatus,
+  );
+
+  // 2. 💡 FIX 3: FinalBookingRequest wrapper-eh create panrom
+  final FinalBookingRequest finalRequestWrapper = FinalBookingRequest(
+    finalBookingUpdate: [finalBookingDetail], // List-a wrap panrom
+  );
+
+  // 3. Repository-kku wrapper-eh anuprom
+  return repository.FinalBookingStatus(request: finalRequestWrapper); // 💡 FIX 4: Wrapper-eh pass panrom
+});

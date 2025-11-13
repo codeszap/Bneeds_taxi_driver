@@ -105,11 +105,19 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
   }
 
   String formatDate(String dateStr) {
-    if (dateStr.isEmpty) return "";
+    // Step 1: Date empty'a iruntha, onnum seiya venaam.
+    if (dateStr.isEmpty || dateStr == 'null') return "";
+
     try {
-      final parsed = DateFormat("M/d/yyyy h:mm:ss a").parse(dateStr);
-      return DateFormat("dd-MM-yyyy").format(parsed);
+      // Step 2: API'la irundhu vara date string'a DateTime object'a maathuvom.
+      // DateTime.parse() function '2025-11-05T00:00:00.000Z' format'a neradiyave purinjikum.
+      final parsedDate = DateTime.parse(dateStr);
+
+      // Step 3: Antha DateTime object'a namakku venaama format'ku (`dd-MM-yyyy`) maathuvom.
+      return DateFormat("dd-MM-yyyy").format(parsedDate);
     } catch (e) {
+      // Step 4: Ethavathu error vandha, log panniட்டு, empty'a anupidalam.
+      print("Error parsing date '$dateStr': $e");
       return "";
     }
   }

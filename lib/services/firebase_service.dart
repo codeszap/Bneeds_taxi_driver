@@ -149,7 +149,7 @@ Future<void> initFirebaseMessaging(
       drop: data['drop'] ?? '',
       pickuplatlong: data['pickuplatlong'] ?? '',
       droplatlong: data['droplatlong'] ?? '',
-      fare: (double.tryParse(data['fare'] ?? '0') ?? 0).toInt(),
+      fare: (double.tryParse(data['fareAmount'] ?? '0') ?? 0).toInt(),
       bookingId: int.tryParse(data['bookingId'] ?? '0') ?? 0,
       fcmToken: data['token'] ?? '',
       cusMobile: data['userMobNo'] ?? '',

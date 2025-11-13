@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../models/BookingDetail.dart';
 import '../../../models/CancelModel.dart';
 import '../../../models/TripState.dart';
 import '../../../models/user_profile_model.dart';
@@ -9,19 +10,25 @@ import '../TripNotifier.dart';
 
 // Dialog Widget
 class TripCustomerInfoDialog extends ConsumerWidget {
-  final TripState trip;
-  final UserProfile? userProfile;
-  final String? customerToken;
+  final BookingDetail? bookingDetail;
 
   const TripCustomerInfoDialog({
-    Key? key,
-    required this.trip,
-    this.userProfile,
-    required this.customerToken,
-  }) : super(key: key);
+    super.key,
+    this.bookingDetail,
+  });
+
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (bookingDetail == null) {
+      return const Dialog(
+        child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: Text("Booking details not available."),
+        ),
+      );
+    }
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 8,
@@ -67,57 +74,57 @@ class TripCustomerInfoDialog extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                _modernInfoRow(Icons.location_pin, "Pickup", trip.pickup),
-                _modernInfoRow(Icons.flag, "Drop", trip.drop),
-                _modernInfoRow(Icons.attach_money, "Fare", "₹${trip.fare}"),
+                _modernInfoRow(Icons.location_pin, "Pickup", bookingDetail!.pickupLocation),
+                _modernInfoRow(Icons.flag, "Drop", bookingDetail!.dropLocation),
+                _modernInfoRow(Icons.attach_money, "Fare", "₹${bookingDetail?.fareAmount}"),
                 const Divider(height: 24, thickness: 1),
 
-                // Customer Info Section
-                if (userProfile != null) ...[
-                  Row(
-                    children: const [
-                      Icon(Icons.person, color: Colors.blue),
-                      SizedBox(width: 8),
-                      Text(
-                        "Customer Info",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  _modernInfoRow(
-                    Icons.person_outline,
-                    "Name",
-                    userProfile!.userName,
-                  ),
-                  GestureDetector(
-                    onTap: () async {
-                      final phone = userProfile!.mobileNo;
-                      final uri = Uri.parse("tel:$phone");
-                      try {
-                        await launchUrl(uri, mode: LaunchMode.platformDefault);
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("Error opening dialer: $e")),
-                        );
-                      }
-                    },
-                    child: _modernInfoRow(
-                      Icons.phone,
-                      "Mobile",
-                      userProfile!.mobileNo,
-                    ),
-                  ),
-
-                  _modernInfoRow(
-                    Icons.home,
-                    "Address",
-                    "${userProfile!.address1}, ${userProfile!.address2}, ${userProfile!.city}",
-                  ),
-                ],
+                // // Customer Info Section
+                // if (userProfile != null) ...[
+                //   Row(
+                //     children: const [
+                //       Icon(Icons.person, color: Colors.blue),
+                //       SizedBox(width: 8),
+                //       Text(
+                //         "Customer Info",
+                //         style: TextStyle(
+                //           fontSize: 16,
+                //           fontWeight: FontWeight.bold,
+                //         ),
+                //       ),
+                //     ],
+                //   ),
+                //   const SizedBox(height: 8),
+                //   _modernInfoRow(
+                //     Icons.person_outline,
+                //     "Name",
+                //     userProfile!.userName,
+                //   ),
+                //   GestureDetector(
+                //     onTap: () async {
+                //       final phone = userProfile!.mobileNo;
+                //       final uri = Uri.parse("tel:$phone");
+                //       try {
+                //         await launchUrl(uri, mode: LaunchMode.platformDefault);
+                //       } catch (e) {
+                //         ScaffoldMessenger.of(context).showSnackBar(
+                //           SnackBar(content: Text("Error opening dialer: $e")),
+                //         );
+                //       }
+                //     },
+                //     child: _modernInfoRow(
+                //       Icons.phone,
+                //       "Mobile",
+                //       userProfile!.mobileNo,
+                //     ),
+                //   ),
+                //
+                //   _modernInfoRow(
+                //     Icons.home,
+                //     "Address",
+                //     "${userProfile!.address1}, ${userProfile!.address2}, ${userProfile!.city}",
+                //   ),
+                // ],
 
                 const SizedBox(height: 20),
 
@@ -257,36 +264,36 @@ class TripCustomerInfoDialog extends ConsumerWidget {
                                   riderStatus: "OL",
                                   fromLatLong: fromLatLong,
                                 );
-                                if(response != null){
-                                  FirebasePushService.sendPushNotification(
-                                    fcmToken: customerToken!,
-                                    title: "Rider Cancel Ride",
-                                    body: "Ride Cancelled By Rider",
-                                    data: {
-                                      "status": "cancel ride",
-                                      "reason": "Unable to pickup",
-                                    },
-                                  );
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        "Ride cancelled successfully ✅",
-                                      ),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-
-                                  Navigator.of(
-                                    context,
-                                  ).pop(); // close TripCustomerInfoDialog
-                                  // Navigate home
-
-                                  Future.delayed(
-                                    Duration.zero,
-                                        () => router.go(AppRoutes.driverHome),
-                                  );
-                                }
-
+                                // if(response != null){
+                                //   FirebasePushService.sendPushNotification(
+                                //     fcmToken: customerToken!,
+                                //     title: "Rider Cancel Ride",
+                                //     body: "Ride Cancelled By Rider",
+                                //     data: {
+                                //       "status": "cancel ride",
+                                //       "reason": "Unable to pickup",
+                                //     },
+                                //   );
+                                //   ScaffoldMessenger.of(context).showSnackBar(
+                                //     const SnackBar(
+                                //       content: Text(
+                                //         "Ride cancelled successfully ✅",
+                                //       ),
+                                //       backgroundColor: Colors.green,
+                                //     ),
+                                //   );
+                                //
+                                //   Navigator.of(
+                                //     context,
+                                //   ).pop(); // close TripCustomerInfoDialog
+                                //   // Navigate home
+                                //
+                                //   Future.delayed(
+                                //     Duration.zero,
+                                //         () => router.go(AppRoutes.driverHome),
+                                //   );
+                                // }
+                                //
 
                               }
                             } else {

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:bneeds_taxi_driver/utils/storage.dart';
 
 import '../models/TripState.dart';
+import '../utils/fcmHelper.dart';
 import 'onTrip/TripNotifier.dart';
 
 class DriverSplashScreen extends ConsumerStatefulWidget {
@@ -18,64 +19,16 @@ class _DriverSplashScreenState extends ConsumerState<DriverSplashScreen> {
   @override
   void initState() {
     super.initState();
-    _initFCMToken();
+    _initializeAndNavigate();
+  }
+
+  Future<void> _initializeAndNavigate() async {
+    await FcmHelper.syncTokenWithServer();
     _checkNavigation();
-  }
 
-  Future<void> _initFCMToken() async {
-    try {
-      final prefsFcmToken = SharedPrefsHelper.getDriverFcmToken();
-      final mobileNo = SharedPrefsHelper.getDriverMobile();
-      final riderId = SharedPrefsHelper.getRiderId();
-
-      if (riderId.isEmpty) {
-        debugPrint("⚠️ Rider Id not found. Cannot update FCM token.");
-      } else {
-        debugPrint("✅ Rider Id found: $riderId");
-      }
-
-      if (mobileNo.isEmpty) {
-        debugPrint(
-          "⚠️ Driver mobile number not found. Cannot update FCM token.",
-        );
-        return;
-      }
-      if (prefsFcmToken.isEmpty) {
-        final fcmToken = await FirebaseMessaging.instance.getToken();
-
-        if (fcmToken != null && fcmToken.isNotEmpty) {
-          debugPrint("✅ New FCM Token fetched: $fcmToken");
-
-          final repo = ref.read(driverRepositoryProvider);
-          final response = await repo.updateFcmToken(
-            mobileNo: mobileNo,
-            tokenKey: fcmToken,
-          );
-
-          if (response.status == "success") {
-            await SharedPrefsHelper.setDriverFcmToken(fcmToken);
-            debugPrint(
-              "✅ FCM Token successfully updated on server and saved locally.",
-            );
-          } else {
-            debugPrint(
-              "⚠️ Failed to update FCM token on the server. Status: ${response.status}",
-            );
-          }
-        } else {
-          debugPrint("⚠️ Failed to fetch new FCM Token from Firebase.");
-        }
-      } else {
-        debugPrint("✅ FCM Token already exists locally.");
-      }
-    } catch (e) {
-      debugPrint("❌ An error occurred in _initFCMToken: $e");
-    }
-  }
-
-  LatLng stringToLatLng(String s) {
-    final parts = s.split(',');
-    return LatLng(double.parse(parts[0]), double.parse(parts[1]));
+    final driverStatus = ref.read(driverStatusProvider);
+    final locationService = ref.read(driverLocationServiceProvider);
+    locationService.setupLocationUpdater(driverStatus);
   }
 
   Future<void> _checkNavigation() async {
@@ -85,29 +38,8 @@ class _DriverSplashScreenState extends ConsumerState<DriverSplashScreen> {
     if (!mounted) return;
 
     // 1️⃣ Check if there is any ongoing trip
-    final tripData = await SharedPrefsHelper.getTripData();
-    if (tripData != null) {
-      final pickupLatLng = stringToLatLng(tripData['pickupLatLng']);
-      final dropLatLng = stringToLatLng(tripData['dropLatLng']);
-      final statusIndex = tripData['status'] ?? 0;
-      final tripStatus = TripStatus.values[statusIndex];
-
-      ref
-          .read(tripProvider.notifier)
-          .acceptRide(
-            tripData['pickup'],
-            tripData['drop'],
-            tripData['fare'],
-            pickupLatLng,
-            dropLatLng,
-            tripData['otp'],
-            tripData['bookingId'],
-            tripData['fcmToken'],
-            tripData['userId'],
-            tripData['cusMobile'],
-            tripStatus,
-          );
-
+    final driverStatus = await SharedPrefsHelper.getDriverStatus();
+    if (driverStatus == "RB") {
       context.go(AppRoutes.trip);
       return;
     }

@@ -41,19 +41,19 @@ Future<void> showOtpDialog(
               Navigator.of(dialogContext).pop();
               onOtpVerified();
 
-              if (customerFcm.isNotEmpty) {
-                await FirebasePushService.sendPushNotification(
-                  fcmToken: customerFcm,
-                  title: "Ride Started✅",
-                  body: "Your ride has started. Sit back and relax!",
-                  data: {
-                    "bookingId": bookingId,
-                    "status": "start trip",
-                    "driverLatLong": pickupLatLng.toString(),
-                    "otp": otp,
-                  },
-                );
-              }
+              // if (customerFcm.isNotEmpty) {
+              //   await FirebasePushService.sendPushNotification(
+              //     fcmToken: customerFcm,
+              //     title: "Ride Started✅",
+              //     body: "Your ride has started. Sit back and relax!",
+              //     data: {
+              //       "bookingId": bookingId,
+              //       "status": "start trip",
+              //       "driverLatLong": pickupLatLng.toString(),
+              //       "otp": otp,
+              //     },
+              //   );
+              // }
             } else {
               setState(() => isError = true);
             }

@@ -25,7 +25,7 @@ class ProfileRepository {
   final Dio _dio = ApiClient().dio;
 
   Future<List<DriverProfile>> getRiderLogin({required String mobileno}) async {
-    final url = "frmRiderProfileApi.aspx?action=L&mobileno=$mobileno";
+    final url = "/driver/frmRiderProfileApi?action=L&mobileno=$mobileno";
 
     try {
       final response = await _dio.get(url);
@@ -33,7 +33,9 @@ class ProfileRepository {
       // முழு response data print பண்ண
       print("Raw response: ${response.data}");
 
-      final data = response.data is String ? jsonDecode(response.data) : response.data;
+      final data = response.data is String
+          ? jsonDecode(response.data)
+          : response.data;
 
       // decode ஆனது print பண்ண
       print("Decoded data: $data");
@@ -48,39 +50,43 @@ class ProfileRepository {
       print("Error fetching rider login: ${e.response?.data ?? e.message}");
       return [];
     }
-
   }
 
   Future<ApiResponse> insertUserProfile(DriverProfile profile) async {
-  final url = "frmRiderProfileApi.aspx?action=I";
-  final body = {"RiderprofileDet": [profile.toJson()]};
-
-  try {
-    final response = await _dio.post(
-      url,
-      data: body,
-      options: Options(headers: {"Content-Type": "application/json"}),
-    );
-
-    final data = response.data is String ? jsonDecode(response.data) : response.data;
-
-    if (data["status"] == "success" && data["Riderid"] != null) {
-      await SharedPrefsHelper.setRiderId(data["Riderid"].toString());
-      print("✅ RiderId saved: ${data["Riderid"]}");
-    }
-
-    return ApiResponse.fromJson(data);
-  } on DioException catch (e) {
-    return ApiResponse(
-      status: "error",
-      message: e.response?.data.toString() ?? e.message ?? "Unknown error",
-    );
-  }
-}
-  Future<ApiResponse> updateUserProfile(DriverProfile profile) async {
-    final url = "frmRiderProfileApi.aspx?action=E";
+    final url = "/driver/frmRiderProfileApi?action=I";
     final body = {
-      "editriderpro": [profile.toJson()]
+      "RiderprofileDet": [profile.toJson()],
+    };
+
+    try {
+      final response = await _dio.post(
+        url,
+        data: body,
+        options: Options(headers: {"Content-Type": "application/json"}),
+      );
+
+      final data = response.data is String
+          ? jsonDecode(response.data)
+          : response.data;
+
+      if (data["status"] == "success" && data["Riderid"] != null) {
+        await SharedPrefsHelper.setRiderId(data["Riderid"].toString());
+        print("✅ RiderId saved: ${data["Riderid"]}");
+      }
+
+      return ApiResponse.fromJson(data);
+    } on DioException catch (e) {
+      return ApiResponse(
+        status: "error",
+        message: e.response?.data.toString() ?? e.message ?? "Unknown error",
+      );
+    }
+  }
+
+  Future<ApiResponse> updateUserProfile(DriverProfile profile) async {
+    final url = "/driver/frmRiderProfileApi?action=E";
+    final body = {
+      "editriderpro": [profile.toJson()],
     };
 
     try {
@@ -93,7 +99,9 @@ class ProfileRepository {
         options: Options(headers: {"Content-Type": "application/json"}),
       );
 
-      final data = response.data is String ? jsonDecode(response.data) : response.data;
+      final data = response.data is String
+          ? jsonDecode(response.data)
+          : response.data;
 
       // 💡 Access the Riderid from the raw data before conversion
       // The C# API returns Riderid on success for action=E too.
@@ -114,85 +122,59 @@ class ProfileRepository {
     }
   }
 
+  Future<ApiResponse> updateDriverStatus({
+    required String riderId,
+    required String riderStatus,
+    required String fromLatLong,
+  }) async {
+    // final url = "frmRiderProfileApi.aspx?action=U";
+    final url = "/driver/frmRiderProfileApi?action=U";
 
-
-Future<ApiResponse> updateDriverStatus({
-  required String riderId,
-  required String riderStatus,
-  required String fromLatLong,
-}) async {
-  final url = "frmRiderProfileApi.aspx?action=U";
-
-final body = jsonEncode({
-  "updateriderpro": [
-    {
-      "Riderid": riderId,
-      "FromLatLong": fromLatLong,
-      "riderstatus": riderStatus,
-      "timestamp": DateTime.now().toIso8601String(),
-    }
-  ]
-});
-
-  try {
-    print("🚀 Calling API: $url");
-    print("📦 Body: $body");
-
-    final response = await _dio.post(
-      url,
-      data: body,
-      options: Options(headers: {"Content-Type": "application/json"}),
-    );
-
-    print("✅ Raw Response: ${response.data}");
-
-    final data = response.data is String
-        ? jsonDecode(response.data)
-        : response.data;
-
-    return ApiResponse(
-      status: data['status'] ?? 'error',
-      message: data['message'] ?? 'Unknown',
-    );
-  } on DioException catch (e) {
-    print("❌ Dio Error: ${e.response?.data ?? e.message}");
-    return ApiResponse(
-      status: "error",
-      message: e.response?.data.toString() ?? e.message ?? "Unknown error",
-    );
-  }
-}
-
-  Future<List<UserProfile>> getUserDetail({required String mobileno}) async {
-    final url = "frmUserProfileInsertApi.aspx?action=L&mobileno=$mobileno";
+    final body = jsonEncode({
+      "updateriderpro": [
+        {
+          "Riderid": riderId,
+          "FromLatLong": fromLatLong,
+          "riderstatus": riderStatus,
+          "timestamp": DateTime.now().toIso8601String(),
+        },
+      ],
+    });
 
     try {
-      final response = await _dio.get(url);
+      print("🚀 Calling API: $url");
+      print("📦 Body: $body");
 
-      // முழு response data print பண்ண
-      print("Raw response: ${response.data}");
+      final response = await _dio.post(
+        url,
+        data: body,
+        options: Options(headers: {"Content-Type": "application/json"}),
+      );
 
-      final data = response.data is String ? jsonDecode(response.data) : response.data;
+      print("✅ Raw Response: ${response.data}");
 
-      // decode ஆனது print பண்ண
-      print("Decoded data: $data");
+      final data = response.data is String
+          ? jsonDecode(response.data)
+          : response.data;
 
-      if (data['status'] == 'success' && data['data'] != null) {
-        final riders = List<Map<String, dynamic>>.from(data['data']);
-        return riders.map((r) => UserProfile.fromJson(r)).toList();
-      } else {
-        return [];
-      }
+      return ApiResponse(
+        status: data['status'] ?? 'error',
+        message: data['message'] ?? 'Unknown',
+      );
     } on DioException catch (e) {
-      print("Error fetching rider login: ${e.response?.data ?? e.message}");
-      return [];
+      print("❌ Dio Error: ${e.response?.data ?? e.message}");
+      return ApiResponse(
+        status: "error",
+        message: e.response?.data.toString() ?? e.message ?? "Unknown error",
+      );
     }
-
   }
 
   Future<ApiResponse> getCompleteBookingStatus(VehBookingFinal profile) async {
-    final url = "frmvehBookingApi.aspx?action=F";
-    final body = {"vehbookingfinal": [profile.toJson()]};
+    final url = "/bookingRide/frmvehBookingApi?action=F";
+    final body = {
+      "vehbookingfinal": [profile.toJson()],
+    };
 
     try {
       final response = await _dio.post(
@@ -206,18 +188,21 @@ final body = jsonEncode({
 
       return ApiResponse.fromJson(resData);
     } catch (e) {
-      return ApiResponse(status: 'error', message: 'Failed to fetch complete booking status: $e');
+      return ApiResponse(
+        status: 'error',
+        message: 'Failed to fetch complete booking status: $e',
+      );
     }
   }
 
   Future<bool> cancelBooking(CancelModel cancel) async {
     try {
       final payload = {
-        "vehbookingdecline": [cancel.toMap()]
+        "vehbookingdecline": [cancel.toMap()],
       };
 
       final response = await _dio.post(
-        "${ApiEndpoints.bookingRide}?action=D",
+        "${ApiEndpoints.bookingRide}",
         data: payload,
         options: Options(headers: {"Content-Type": "application/json"}),
       );
@@ -265,15 +250,12 @@ final body = jsonEncode({
     required String mobileNo,
     required String tokenKey,
   }) async {
-    final url = "frmRiderProfileApi.aspx?action=T";
+    final url = "/driver/frmRiderProfileApi?action=T";
 
     final body = jsonEncode({
       "updateridertokenkey": [
-        {
-          "mobileno": mobileNo,
-          "tokenkey": tokenKey,
-        }
-      ]
+        {"mobileno": mobileNo, "tokenkey": tokenKey},
+      ],
     });
 
     try {
@@ -304,7 +286,4 @@ final body = jsonEncode({
       );
     }
   }
-
-
-
 }

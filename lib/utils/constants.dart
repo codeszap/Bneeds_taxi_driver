@@ -14,6 +14,7 @@ class Strings {
   static const String farePrefix = "Fare: ₹";
   static const String paymentCash = "Payment: Cash";
   static const String readyForNextRide = "Ready for Next Ride";
+  static const String submitFare = "Submit Fare";
   static const String bookingFailed = "❌ Failed to complete booking";
 
   // -------------------- Push Notifications --------------------

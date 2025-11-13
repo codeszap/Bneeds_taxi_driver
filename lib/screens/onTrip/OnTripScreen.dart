@@ -3,11 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:bneeds_taxi_driver/utils/storage.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import '../../models/Api Modal/AcceptBookingRequest.dart';
+import '../../models/BookingDetail.dart';
 import '../../models/TripState.dart';
-import '../../repositories/vehicle_type_repository.dart';
+import '../../providers/params/booking_params.dart';
 import '../../utils/otp_dialog.dart';
 import 'TripNotifier.dart';
-
 
 /// ------------------ OTP Dialog ------------------
 
@@ -29,21 +30,36 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
   Position? _currentPosition;
   double _lastRouteLat = 0;
   double _lastRouteLng = 0;
-  double routeUpdateThreshold = 20; // meters
+  double routeUpdateThreshold = 20;
   List<LatLng> pickupPolyline = [];
   List<LatLng> dropPolyline = [];
   bool showInfoPanel = false;
-  bool _otpShown = false; // to avoid showing OTP dialog repeatedly
+  bool _otpShown = false;
   List<LatLng> polylineCoordinates = [];
   GoogleMapController? _mapController;
+  int? bookingId;
+  int? riderId;
+  String? _apiTripStatus;
+  BookingDetail? _bookingDetail;
+  Set<Marker> _markers = {};
 
   @override
   void initState() {
     super.initState();
-    fetchUserProfile();
+    _loadIds();
     WakelockPlus.enable();
     Future.microtask(() async {
       await _initForTrip();
+    });
+  }
+
+  Future<void> _loadIds() async {
+    final bId = await SharedPrefsHelper.getBookingId();
+    final rId = await SharedPrefsHelper.getRiderId();
+
+    setState(() {
+      bookingId = int.tryParse(bId);
+      riderId = int.tryParse(rId);
     });
   }
 
@@ -51,55 +67,115 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
     final hasPermission = await _checkLocationPermission();
     if (!hasPermission) return;
 
-    await ref.read(tripProvider.notifier).loadTripFromPrefs();
-    final trip = ref.read(tripProvider);
+    // ✅ Step 1: Fetch booking list from API
+    final bookingList = await ref.read(
+      fetchBookingDetailProvider(
+        BookingParams(bookingId: bookingId!, riderId: riderId!),
+      ).future,
+    );
 
-    LatLng startLatLng;
-    LatLng endLatLng;
-
-    if (trip.status == TripStatus.accepted) {
-      startLatLng = LatLng(
-        _currentPosition?.latitude ?? trip.pickupLatLng.latitude,
-        _currentPosition?.longitude ?? trip.pickupLatLng.longitude,
-      );
-      endLatLng = trip.pickupLatLng;
-    } else if (trip.status == TripStatus.onTrip) {
-      startLatLng = LatLng(
-        _currentPosition?.latitude ??
-            trip.driverCurrentLatLng?.latitude ??
-            trip.pickupLatLng.latitude,
-        _currentPosition?.longitude ??
-            trip.driverCurrentLatLng?.longitude ??
-            trip.pickupLatLng.longitude,
-      );
-      endLatLng = trip.dropLatLng;
-    } else {
+    if (bookingList.isEmpty) {
+      print("❌ No booking data found from API");
       return;
     }
 
-    await getRoute(startLatLng, endLatLng);
+    final booking = bookingList.first;
+    final tripStatus = booking.tripStatus ?? '';
+    _apiTripStatus = tripStatus;
+    _bookingDetail = booking;
 
-    // Move camera
-    // _moveCameraToFitBounds();
+    // ✅ Step 2: Parse coordinates
+    final fromLatLong = booking.fromLatLong.split(',');
+    final toLatLong = booking.toLatLong.split(',');
 
-   // _focusDriverAndPickup();
-
-    // Resume trip timer if needed
-    if (trip.status == TripStatus.onTrip) {
-      ref
-          .read(tripProvider.notifier)
-          .startAutoTrip(resumeFrom: trip.elapsedTime);
+    if (fromLatLong.length < 2 || toLatLong.length < 2) {
+      print("⚠️ Invalid coordinates in API data");
+      return;
     }
 
-    // Restore taxi marker
-    setState(() {
-      taxiMarker = taxiMarker.copyWith(
-        positionParam: trip.driverCurrentLatLng ?? trip.pickupLatLng,
-      );
-    });
+    final pickupLatLng = LatLng(
+      double.parse(fromLatLong[0]),
+      double.parse(fromLatLong[1]),
+    );
+    final dropLatLng = LatLng(
+      double.parse(toLatLong[0]),
+      double.parse(toLatLong[1]),
+    );
 
-    // Start live tracking
+    // ✅ Step 3: Get current driver location
+    final pos = await Geolocator.getCurrentPosition();
+    _currentPosition = pos;
+    final driverLatLng = LatLng(pos.latitude, pos.longitude);
+
+    // ✅ Step 4: Update provider with pickup/drop info
+    ref.read(tripProvider.notifier).setPickupAndDrop(pickupLatLng, dropLatLng);
+    ref.read(tripProvider.notifier).setDriverCurrentLocation(driverLatLng);
+
+    // ✅ Step 5: Determine route start and end
+    LatLng startLatLng;
+    LatLng endLatLng;
+
+    // --- 👇👇 புதிய குறியீடு START 👇👇 ---
+    // வரைபடத்தில் marker-களைக் காண்பிக்கவும்
+    final tripNotifier = ref.read(tripProvider.notifier);
+
+    if (tripStatus == "O") {
+      startLatLng = driverLatLng;
+      endLatLng = pickupLatLng;
+
+      // Pickup marker-ஐ மட்டும் காண்பிக்கவும்
+      tripNotifier.updateRouteVisibility(
+        pickupVisible: true,
+        dropVisible: false,
+      );
+      setState(() {
+        _markers.add(
+          Marker(markerId: MarkerId('driver'), position: driverLatLng),
+        );
+        _markers.add(
+          Marker(markerId: MarkerId('pickup'), position: pickupLatLng),
+        );
+      });
+      print("📍 TripStatus O → route: current → pickup");
+    } else if (tripStatus == "P") {
+      startLatLng = driverLatLng;
+      endLatLng = dropLatLng;
+
+      // Drop marker-ஐ மட்டும் காண்பிக்கவும்
+      tripNotifier.updateRouteVisibility(
+        pickupVisible: false,
+        dropVisible: true,
+      );
+
+      print("🚖 TripStatus P → route: current → drop");
+    } else {
+      print("⚠️ Unknown TripStatus: $tripStatus");
+      return;
+    }
+    // --- 👆👆 புதிய குறியீடு END 👆👆 ---
+
+    // ✅ Step 6: Draw route
+    await getRoute(startLatLng, endLatLng);
+
+    // ✅ Step 7: Focus camera properly
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (_mapController != null) {
+      if (tripStatus == "O") {
+        _focusDriverAndPickup();
+      } else if (tripStatus == "P") {
+        _focusPickupAndDrop();
+      }
+    }
+
+    // ✅ Step 8: Start live tracking
     _startLiveTracking();
+
+    if (mounted) {
+      setState(() {
+        // ஆரம்பத்தில் marker-களையும் polyline-ஐயும் காண்பிக்க,
+        // UI-ஐப் புதுப்பிக்க இந்த setState() உதவுகிறது.
+      });
+    }
   }
 
   void _startLiveTracking() async {
@@ -113,90 +189,78 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
 
     _positionStream?.cancel();
     _positionStream =
-        Geolocator.getPositionStream(
-          locationSettings: locationSettings,
-        ).listen((Position pos) {
-          _currentPosition = pos;
-          final newLatLng = LatLng(pos.latitude, pos.longitude);
+        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+          (Position pos) async {
+            _currentPosition = pos;
+            final newLatLng = LatLng(pos.latitude, pos.longitude);
 
-          setState(() {
-            taxiMarker = taxiMarker.copyWith(positionParam: newLatLng);
-          });
+            ref.read(tripProvider.notifier).setDriverCurrentLocation(newLatLng);
 
-          _mapController?.animateCamera(CameraUpdate.newLatLng(newLatLng));
+            setState(() {
+              taxiMarker = taxiMarker.copyWith(positionParam: newLatLng);
+            });
 
-          final trip = ref.watch(tripProvider);
+            _mapController?.animateCamera(CameraUpdate.newLatLng(newLatLng));
 
-          // -----------------------------
-          // Pickup Geofence
-          // -----------------------------
-          if (trip.status == TripStatus.accepted && !_otpShown) {
-            double radius = 50; // meters
-            double distanceToPickup = Geolocator.distanceBetween(
-              pos.latitude,
-              pos.longitude,
-              trip.pickupLatLng.latitude,
-              trip.pickupLatLng.longitude,
-            );
+            // -----------------------------
+            // Pickup Geofence (TripStatus = "O")
+            // -----------------------------
+            if (_apiTripStatus == "O" && !_otpShown) {
+              double radius = 50; // meters
+              double distanceToPickup = Geolocator.distanceBetween(
+                pos.latitude,
+                pos.longitude,
+                ref.read(tripProvider).pickupLatLng.latitude,
+                ref.read(tripProvider).pickupLatLng.longitude,
+              );
 
-            if (distanceToPickup <= radius) {
-              _otpShown = true; // prevent duplicate
-              ref.read(tripProvider.notifier).updateCanStartTrip(true);
+              if (distanceToPickup <= radius) {
+                _otpShown = true; // prevent duplicate
+                ref.read(tripProvider.notifier).updateCanStartTrip(true);
 
-              if (trip.fcmToken.isNotEmpty) {
-                FirebasePushService.sendPushNotification(
-                  fcmToken: trip.fcmToken,
-                  title: "Driver Arrived at Pickup ✅",
-                  body: "Your driver has arrived at the pickup location.",
-                  data: {
-                    "bookingId": trip.bookingId,
-                    "status": "arrived_pickup",
-                  },
-                );
+                // push notification to customer, etc.
               }
             }
-          }
-          // -----------------------------
-          // Auto Drop Geofence
-          // -----------------------------
-          else if (trip.status == TripStatus.onTrip) {
-            double dropRadius = 30; // meters
-            double distanceToDrop = Geolocator.distanceBetween(
+            // -----------------------------
+            // Auto Drop Geofence (TripStatus = "P")
+            // -----------------------------
+            else if (_apiTripStatus == "P") {
+              double dropRadius = 30;
+              double distanceToDrop = Geolocator.distanceBetween(
+                pos.latitude,
+                pos.longitude,
+                ref.read(tripProvider).dropLatLng.latitude,
+                ref.read(tripProvider).dropLatLng.longitude,
+              );
+
+              // if (distanceToDrop <= dropRadius) {
+              //   _stopLiveTracking();
+              //   ref.read(tripProvider.notifier).completeTrip();
+              // }
+            }
+
+            // -----------------------------
+            // Auto Recalculate Route
+            // -----------------------------
+            double distFromLastRoute = Geolocator.distanceBetween(
               pos.latitude,
               pos.longitude,
-              trip.dropLatLng.latitude,
-              trip.dropLatLng.longitude,
+              _lastRouteLat,
+              _lastRouteLng,
             );
 
-            // if (distanceToDrop <= dropRadius) {
-            //   _stopLiveTracking();
-            //   // ref
-            //   //     .read(tripProvider.notifier)
-            //   //     .completeTrip(); // sends notification
-            // }
-          }
+            if (distFromLastRoute > routeUpdateThreshold) {
+              _lastRouteLat = pos.latitude;
+              _lastRouteLng = pos.longitude;
 
-          // -----------------------------
-          // Auto Recalculate Route
-          // -----------------------------
-          double distFromLastRoute = Geolocator.distanceBetween(
-            pos.latitude,
-            pos.longitude,
-            _lastRouteLat,
-            _lastRouteLng,
-          );
-
-          if (distFromLastRoute > routeUpdateThreshold) {
-            _lastRouteLat = pos.latitude;
-            _lastRouteLng = pos.longitude;
-
-            if (trip.status == TripStatus.accepted) {
-              getRoute(newLatLng, trip.pickupLatLng); // recalc route to pickup
-            } else if (trip.status == TripStatus.onTrip) {
-              getRoute(newLatLng, trip.dropLatLng); // recalc route to drop
+              if (_apiTripStatus == "O") {
+                await getRoute(newLatLng, ref.read(tripProvider).pickupLatLng);
+              } else if (_apiTripStatus == "P") {
+                await getRoute(newLatLng, ref.read(tripProvider).dropLatLng);
+              }
             }
-          }
-        });
+          },
+        );
   }
 
   Future<void> getRoute(LatLng start, LatLng end) async {
@@ -236,13 +300,9 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
       //   _moveCameraToFitBounds();
       // }
       if (_mapController != null) {
-        final trip = ref.read(tripProvider);
-
-        if (trip.status == TripStatus.accepted) {
-          // Before starting trip: focus on driver + pickup
+        if (_apiTripStatus == "O") {
           _focusDriverAndPickup();
-        } else if (trip.status == TripStatus.onTrip) {
-          // After trip started: focus on pickup + drop
+        } else if (_apiTripStatus == "P") {
           _focusPickupAndDrop();
         }
       }
@@ -260,125 +320,39 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
     _lastRouteLng = 0;
   }
 
-  void _testmoveTaxiToPickup() async {
-    final trip = ref.read(tripProvider);
-
-    // Update state to accepted
-    ref.read(tripProvider.notifier).updateCanStartTrip(false);
-
-    // Move taxi instantly (or animate if you want)
-    setState(() {
-      taxiMarker = taxiMarker.copyWith(positionParam: trip.pickupLatLng);
-    });
-
-    // // Send push notification
-    // if (trip.fcmToken.isNotEmpty) {
-    //   await FirebasePushService.sendPushNotification(
-    //     fcmToken: trip.fcmToken,
-    //     title: "Driver Arrived at Pickup ✅",
-    //     body: "Your driver has arrived at the pickup location.",
-    //     data: {"bookingId": trip.bookingId, "status": "arrived_pickup"},
-    //   );
-    // }
-
-    // Enable Drop button
-    ref.read(tripProvider.notifier).updateCanStartTrip(true);
-  }
-
-  void _testmoveTaxiToDrop() async {
-    final trip = ref.read(tripProvider);
-
-    // Move taxi instantly to drop location
-    setState(() {
-      taxiMarker = taxiMarker.copyWith(positionParam: trip.dropLatLng);
-    });
-
-    await SharedPrefsHelper.clearTripData();
-    await ref.read(tripProvider.notifier).completeTrip();
-    _stopLiveTracking();
-
-    // Navigate to TripCompleteScreen
-    if (mounted) {
-      context.go(AppRoutes.tripComplete); // <-- use your GoRouter route
-    }
-  }
-
-  void _moveTaxiToPickup() async {
-    final trip = ref.read(tripProvider);
-
-    if (_currentPosition == null) return;
-
-    double distanceToPickup = Geolocator.distanceBetween(
-      _currentPosition!.latitude,
-      _currentPosition!.longitude,
-      trip.pickupLatLng.latitude,
-      trip.pickupLatLng.longitude,
-    );
-
-    const pickupRadius = 50; // meters
-
-    if (distanceToPickup <= pickupRadius) {
-      // Move taxi marker
-      setState(() {
-        taxiMarker = taxiMarker.copyWith(positionParam: trip.pickupLatLng);
-      });
-
-      ref.read(tripProvider.notifier).updateCanStartTrip(true);
-
-      // Push notification
-      if (trip.fcmToken.isNotEmpty) {
-        FirebasePushService.sendPushNotification(
-          fcmToken: trip.fcmToken,
-          title: "Driver Arrived at Pickup ✅",
-          body: "Your driver has arrived at the pickup location.",
-          data: {"bookingId": trip.bookingId, "status": "arrived_pickup"},
-        );
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "You are too far from pickup location to start the trip.",
-          ),
-        ),
-      );
-    }
-  }
+// In OnTripScreen.dart
 
   void _moveTaxiToDrop() async {
-    final trip = ref.read(tripProvider);
+    // Step 1: Check if essential data is available
+    if (_bookingDetail == null || riderId == null || _currentPosition == null) {
+      print("❌ Cannot complete trip: Booking/Rider/Position details are null.");
+      return;
+    }
 
-    if (_currentPosition == null) return;
-
-    double distanceToDrop = Geolocator.distanceBetween(
-      _currentPosition!.latitude,
-      _currentPosition!.longitude,
-      trip.dropLatLng.latitude,
-      trip.dropLatLng.longitude,
-    );
-
-    const dropRadius = 30; // meters
-
-  //  if (distanceToDrop <= dropRadius) {
-      // Show confirmation dialog
-    final confirm = await showDialog<bool>(
+    // Step 2: Show confirmation dialog
+    final bool? confirm = await showDialog<bool>(
       context: context,
-      barrierDismissible: false, // Force the driver to choose
+      barrierDismissible: false,
       builder: (context) {
+        // Unga confirmation dialog code inga (no changes needed here)
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(20.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.check_circle_outline,
-                    size: 60, color: Colors.green),
+                const Icon(
+                  Icons.check_circle_outline,
+                  size: 60,
+                  color: Colors.green,
+                ),
                 const SizedBox(height: 16),
                 const Text(
                   "Complete Trip?",
-                  style: TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
@@ -394,9 +368,12 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
                     OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       onPressed: () => Navigator.of(context).pop(false),
                       child: const Text("Cancel"),
@@ -404,9 +381,12 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         backgroundColor: Colors.green,
                       ),
                       onPressed: () => Navigator.of(context).pop(true),
@@ -416,7 +396,7 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
                       ),
                     ),
                   ],
-                )
+                ),
               ],
             ),
           ),
@@ -424,29 +404,64 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
       },
     );
 
+    // Step 3: If driver confirms, call the API
+    if (confirm == true) {
+      try {
+        // --- 👇 ITHA SARI PANNUNGA START 👇 ---
+        final tripUpdateDetail = RiderTripUpdateDetail(
+          riderId: riderId.toString(),
+          bookingId: _bookingDetail!.bookingId.toString(),
+          tripStatus: "D", // "D" for Dropped/Completed
+          toLatLong:
+          "${_currentPosition!.latitude},${_currentPosition!.longitude}",
+        );
+        // --- 👆 ITHA SARI PANNUNGA END 👆 ---
 
-    // If driver confirms
-      if (confirm == true) {
-        setState(() {
-          taxiMarker = taxiMarker.copyWith(positionParam: trip.dropLatLng);
-        });
+        final tripUpdateRequest = RiderTripUpdateRequest(
+          updateTripStatus: [tripUpdateDetail],
+        );
 
-        await SharedPrefsHelper.clearTripData();
-        await ref.read(tripProvider.notifier).completeTrip();
+        print("🚀 Calling updateTripStatusProvider API for trip completion...");
+        final response = await ref.read(
+          updateTripStatusProvider(tripUpdateRequest).future,
+        );
 
+        // Step 4: If API call is successful, navigate to the next screen
+        if (response.status == 'success') {
+          print("✅ API Success: Trip status updated to 'D' (Completed).");
+          _stopLiveTracking();
+
+          if (mounted) {
+            context.go(AppRoutes.tripComplete);
+          }
+        } else {
+          // Handle API failure
+          print("❌ API Error on trip completion: ${response.message}");
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                    response.message ?? 'Failed to complete trip. Try again.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        // Handle any other exceptions
+        print("❌ Exception while completing trip: $e");
         if (mounted) {
-          context.go(AppRoutes.tripComplete);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "An error occurred. Please check your connection.",
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
         }
       }
-    // } else {
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //     const SnackBar(
-    //       content: Text(
-    //         "You are too far from drop location to complete the trip.",
-    //       ),
-    //     ),
-    //   );
-    // }
+    }
   }
 
 
@@ -459,51 +474,119 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
     super.dispose();
   }
 
+
   void _onOtpVerified() async {
-    final tripNotifier = ref.read(tripProvider.notifier);
-
-    LatLng driverLatLng = _currentPosition != null
-        ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
-        : ref.read(tripProvider).pickupLatLng;
-
-    // Save driver location
-    tripNotifier.setDriverCurrentLocation(driverLatLng);
-
-    // Complete pickup first
-    tripNotifier.completePickup();
-
-    // Clear old pickup polyline
-    setState(() {
-      polylineCoordinates.clear();
-    });
-
-    // Draw route to drop
-    await getRoute(driverLatLng, ref.read(tripProvider).dropLatLng);
-
-    // Move camera AFTER polyline ready
-    //_moveCameraToFitBounds();
-
-   // _focusPickupAndDrop();
-
-    // Start trip timer
-    tripNotifier.startAutoTrip();
-    final trip = ref.read(tripProvider);
-
-    if (trip.fcmToken.isNotEmpty) {
-      await FirebasePushService.sendPushNotification(
-        fcmToken: trip.fcmToken,
-        title: "Trip Started 🚖",
-        body: "Your trip has started towards the drop location.",
-        data: {
-          "bookingId": trip.bookingId,
-          "status": "start trip",
-          "driverLatLong": "${driverLatLng.latitude},${driverLatLng.longitude}",
-          "dropLatLong":
-              "${trip.dropLatLng.latitude},${trip.dropLatLng.longitude}", // ✅ include this
-          "otp": trip.otp,
-        },
-      );
+    // Step 1: Mudal'la thevayana data ellam irukkaanu check pannikonga
+    if (_bookingDetail == null || _currentPosition == null || riderId == null) {
+      print("❌ Cannot proceed: Booking/Rider/Position details are null.");
+      return;
     }
+
+    final tripUpdateDetail = RiderTripUpdateDetail(
+      riderId: riderId.toString(),
+      bookingId: _bookingDetail!.bookingId.toString(),
+      tripStatus: "P",
+      fromLatLong:
+      "${_currentPosition!.latitude},${_currentPosition!.longitude}",
+    );
+
+    final tripUpdateRequest = RiderTripUpdateRequest(
+      updateTripStatus: [tripUpdateDetail],
+    );
+
+    // Step 3: API-a call panni, response-a handle pannunga
+    try {
+      print("🚀 Calling updateTripStatusProvider API...");
+      final response = await ref.read(
+        updateTripStatusProvider(tripUpdateRequest).future,
+      );
+
+      // Step 4: API call success aana, UI-a update pannunga
+      if (response.status == 'success') {
+        print('✅ API Success: Trip status updated to "P" (Picked Up).');
+
+        // Driver-oda current location and drop location eduthukonga
+        final driverLatLng = LatLng(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+        );
+
+        final toLatLong = _bookingDetail!.toLatLong.split(',');
+        if (toLatLong.length < 2) {
+          print("⚠️ Invalid DROP coordinates from API");
+          return;
+        }
+        final dropLatLng = LatLng(
+          double.parse(toLatLong[0]),
+          double.parse(toLatLong[1]),
+        );
+
+        // setState-kulla UI-a update pannunga
+        setState(() {
+          _apiTripStatus = "P"; // Local status-a maathunga
+          polylineCoordinates.clear(); // Pazhaya route-a azhikkavum
+          _markers.clear(); // Pazhaya markers-a azhikkavum
+
+          // Puthusa 'drop' marker-a add pannunga
+          _markers.add(
+            Marker(
+              markerId: const MarkerId('drop'),
+              position: dropLatLng,
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueAzure, // Drop marker-ku vera color
+              ),
+            ),
+          );
+        });
+
+        // Puthu route-a varaiyavum (Driver -> Drop)
+        await getRoute(driverLatLng, dropLatLng);
+
+        // Map camera-va puthu route-ku focus pannunga
+        _focusCameraOnRoute(driverLatLng, dropLatLng);
+
+      } else {
+        // API fail aagum pothu
+        print('❌ API Error: Trip update failed. Message: ${response.message}');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+              Text(response.message ?? 'Could not update trip. Try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Internet illa, server down maari error-ku
+      print('❌ Exception during trip update API call: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('An error occurred. Check your connection.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+
+  void _focusCameraOnRoute(LatLng start, LatLng end) {
+    if (_mapController == null) return;
+
+    final south = [start.latitude, end.latitude].reduce(min);
+    final north = [start.latitude, end.latitude].reduce(max);
+    final west = [start.longitude, end.longitude].reduce(min);
+    final east = [start.longitude, end.longitude].reduce(max);
+
+    final bounds = LatLngBounds(
+      southwest: LatLng(south, west),
+      northeast: LatLng(north, east),
+    );
+
+    _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
   }
 
   void _focusDriverAndPickup() {
@@ -554,39 +637,20 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
     _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100));
   }
 
-  Future<void> fetchUserProfile() async {
-    final trip = ref.read(tripProvider); // read current trip state
-    if (trip.cusMobile.isNotEmpty) {
-      final profileList = await ProfileRepository().getUserDetail(
-        mobileno: trip.cusMobile,
-        //mobileno: "8870602962",
-      );
-
-      if (profileList.isNotEmpty) {
-        setState(() {
-          userProfile =
-              profileList[0];
-        });
-      }
-    }
-  }
-
   void showTripCustomerInfoDialog(
-      BuildContext context,
-      TripState trip,
-      UserProfile? userProfile,
-      ) {
+    BuildContext context,
+      BookingDetail? booking,
+  ) {
     showDialog(
       context: context,
       builder: (context) {
         return TripCustomerInfoDialog(
-          trip: trip,
-          userProfile: userProfile,
-          customerToken: trip.fcmToken,
+          bookingDetail: booking,
         );
       },
     );
   }
+
   Future<bool> _checkLocationPermission() async {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
@@ -615,6 +679,10 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (bookingId == null || riderId == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     final trip = ref.watch(tripProvider);
     return Scaffold(
       body: Stack(
@@ -633,31 +701,13 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
                 width: 5,
               ),
             },
-            markers: {
-              if (trip.pickupRouteVisible)
-                Marker(
-                  markerId: const MarkerId("pickup"),
-                  position: trip.pickupLatLng,
-                ),
-              if (trip.dropRouteVisible)
-                Marker(
-                  markerId: const MarkerId("drop"),
-                  position: trip.dropLatLng,
-                ),
-              taxiMarker,
-            },
-            // onMapCreated: (controller) {
-            //   _mapController = controller;
-            //   _moveCameraToFitBounds();
-            // },
+            markers: {..._markers, taxiMarker},
             onMapCreated: (controller) {
               _mapController = controller;
-              // Focus camera depending on trip phase
-              if (trip.status == TripStatus.accepted) {
-                // Before trip: focus on driver + pickup
+
+              if (_apiTripStatus == "O") {
                 _focusDriverAndPickup();
-              } else if (trip.status == TripStatus.onTrip) {
-                // Trip already started: focus on pickup + drop
+              } else if (_apiTripStatus == "P") {
                 _focusPickupAndDrop();
               }
             },
@@ -672,7 +722,7 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
               backgroundColor: Colors.blueAccent,
               child: const Icon(Icons.info_outline),
               onPressed: () {
-                showTripCustomerInfoDialog(context, trip, userProfile);
+                showTripCustomerInfoDialog(context, _bookingDetail);
               },
             ),
           ),
@@ -685,58 +735,77 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Start Trip / Complete Ride
+                // --- 👇👇 இங்கேதான் முக்கியமான மாற்றம் 👇👇 ---
 
-             //   if (trip.status == TripStatus.accepted && trip.canStartTrip)
-              //  if(trip.status == TripStatus.accepted)
-             //   if(trip.status != TripStatus.accepted)
-                ElevatedButton(
-                  onPressed: () {
-                    // Show OTP in SnackBar for testing
-                    // ScaffoldMessenger.of(context).showSnackBar(
-                    //   SnackBar(
-                    //     content: Text("Test OTP: ${trip.otp}"),
-                    //     duration: const Duration(seconds: 5),
-                    //     backgroundColor: Colors.redAccent,
-                    //   ),
-                    // );
+                // நிலை 1: பயணம் ACCEPTED நிலையில் இருந்தால் "Start Trip" பட்டனைக் காட்டு
+                // ... உள்ளே build method-ல், Positioned widget-க்கு உள்ளே ...
 
-                    // Open OTP dialog
-                    showOtpDialog(
-                      context,
-                      ref,
-                      _onOtpVerified,
-                      trip.otp,
-                      trip.fcmToken,
-                      trip.bookingId,
-                      trip.pickupLatLng,
-                      trip.pickup,
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green.shade600,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 6,
-                  ),
-                  child: const Text(
-                    "Start Trip",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                //     if (trip.status == TripStatus.onTrip && trip.canCompleteTrip)
-                  const SizedBox(height: 12),
-
-              //  if (trip.status == TripStatus.onTrip && trip.canCompleteTrip)
-            //    if(trip.status == TripStatus.onTrip)
+                // நிலை 1: பயணம் ACCEPTED நிலையில் இருந்தால் "Start Trip" பட்டனைக் காட்டு
+                if (_apiTripStatus == "O")
                   ElevatedButton(
-                    onPressed: _moveTaxiToDrop,
+                    // --- 👇👇 புதிய மாற்றம் இங்கே START 👇👇 ---
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green, // பட்டனின் நிறம் பச்சை
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 6,
+                    ),
+                    // --- 👆👆 புதிய மாற்றம் இங்கே END 👆👆 ---
+                    onPressed: () async {
+                      final booking = _bookingDetail;
+
+                      if (booking == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Booking data not loaded!"),
+                          ),
+                        );
+                        return;
+                      }
+
+                      final correctOtp = booking.otp?.trim();
+
+                      if (correctOtp == null || correctOtp.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("OTP not found in booking data!"),
+                          ),
+                        );
+                        return;
+                      }
+
+                      showOtpDialog(
+                        context,
+                        ref,
+                        () async {
+                          _onOtpVerified();
+                          setState(() {
+                            _apiTripStatus = "P";
+                          });
+                        },
+                        correctOtp!,
+                        trip.fcmToken,
+                        trip.bookingId,
+                        trip.pickupLatLng,
+                        trip.pickup,
+                      );
+                    },
+                    child: const Text(
+                      "Start Trip",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ), // எழுத்து நிறம் வெள்ளை
+                    ),
+                  ),
+
+                // நிலை 2: பயணம் ON_TRIP நிலையில் இருந்தால் "Complete Trip" பட்டனைக் காட்டு
+                if (_apiTripStatus == "P")
+                  ElevatedButton(
+                    onPressed: _moveTaxiToDrop, // பயணத்தை முடிக்கும் செயல்பாடு
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.orange.shade700,
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -750,66 +819,18 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
                       children: const [
                         Icon(Icons.flag, size: 20),
                         SizedBox(width: 8),
-                        Text("Complete Trip"),
+                        Text(
+                          'Complete Trip', // பட்டனின் பெயர்
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ],
                     ),
                   ),
 
-                const SizedBox(height: 12),
-
-                // Pickup / Drop Side-by-Side Buttons
-           //     if (SharedPrefsHelper.getDriverMobile() == "8870602962")
-           //        Row(
-           //          children: [
-           //            Expanded(
-           //              child: ElevatedButton(
-           //                onPressed: _testmoveTaxiToPickup,
-           //                style: ElevatedButton.styleFrom(
-           //                  backgroundColor: Colors.green.shade600,
-           //                  padding: const EdgeInsets.symmetric(vertical: 14),
-           //                  shape: RoundedRectangleBorder(
-           //                    borderRadius: BorderRadius.circular(12),
-           //                  ),
-           //                  elevation: 6,
-           //                ),
-           //                child: Row(
-           //                  mainAxisAlignment: MainAxisAlignment.center,
-           //                  children: const [
-           //                    Icon(Icons.navigation, size: 20),
-           //                    SizedBox(width: 8),
-           //                    Text("Pickup"),
-           //                  ],
-           //                ),
-           //              ),
-           //            ),
-           //            const SizedBox(width: 12),
-           //            Expanded(
-           //              child: ElevatedButton(
-           //                onPressed: trip.canStartTrip
-           //                    ? _testmoveTaxiToDrop
-           //                    : null,
-           //                style: ElevatedButton.styleFrom(
-           //                  backgroundColor: trip.canStartTrip
-           //                      ? Colors.blue.shade600
-           //                      : Colors.grey.shade400,
-           //                  padding: const EdgeInsets.symmetric(vertical: 14),
-           //                  shape: RoundedRectangleBorder(
-           //                    borderRadius: BorderRadius.circular(12),
-           //                  ),
-           //                  elevation: trip.canStartTrip ? 6 : 2,
-           //                ),
-           //                child: Row(
-           //                  mainAxisAlignment: MainAxisAlignment.center,
-           //                  children: const [
-           //                    Icon(Icons.flag, size: 20),
-           //                    SizedBox(width: 8),
-           //                    Text("Drop"),
-           //                  ],
-           //                ),
-           //              ),
-           //            ),
-           //          ],
-           //        ),
+                // --- 👆👆 மாற்றம் இங்கே முடிகிறது 👆👆 ---
               ],
             ),
           ),
