@@ -54,7 +54,7 @@ final finalBookingProvider =
 FutureProvider.family<ApiResponse, FinalBookingParams>((ref, params) async {
   final repository = ref.read(acceptBookingRepositoryProvider);
 
-  // 1. FinalBooking Detail object create panrom (Inner object)
+// 1. FinalBooking Detail object create panrom (Inner object)
   final FinalBooking finalBookingDetail = FinalBooking(
     bookingId: params.bookingId,
     finalAmt: params.finalAmt,

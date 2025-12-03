@@ -124,7 +124,7 @@ class ProfileRepository {
 
   Future<ApiResponse> updateDriverStatus({
     required String riderId,
-    required String riderStatus,
+  required String riderStatus,
     required String fromLatLong,
   }) async {
     // final url = "frmRiderProfileApi.aspx?action=U";

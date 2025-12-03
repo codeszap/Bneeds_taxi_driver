@@ -13,10 +13,12 @@ class BookingRepository {
     required BookingRequest request,
   }) async {
     try {
-      final response = await _client.post(
-        '${ApiEndpoints.acceptBooking}',
-        data: request.toJson(),
-      );
+      // Build URL with query parameters
+      final url =
+          '${ApiEndpoints.acceptBooking}?action=${request.action}&Bookingid=${request.bookingId}&Riderid=${request.riderId}';
+
+      // Make POST request (no body needed)
+      final response = await _client.post(url);
 
       dynamic resData = response.data;
       if (resData is String) resData = jsonDecode(resData);
@@ -41,6 +43,7 @@ class BookingRepository {
       );
     }
   }
+
 
   Future<List<BookingDetail>> fetchBookingDetail(
     int bookingId,
@@ -105,7 +108,7 @@ class BookingRepository {
   }) async {
     try {
       final requestBody = {
-        "RiderId": riderId,
+        "Riderid": riderId,
         "Bookingid": bookingId,
       };
 

@@ -1,12 +1,16 @@
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bneeds_taxi_driver/utils/storage.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../core/locationHelper.dart';
 import '../../services/RideOverlayHelper.dart';
 import '../onTrip/TripNotifier.dart';
 
 class DriverHomeScreen extends ConsumerStatefulWidget {
-  const DriverHomeScreen({super.key});
+  final double? initialLat;
+  final double? initialLng;
+
+  const DriverHomeScreen({super.key, this.initialLat, this.initialLng});
 
   @override
   ConsumerState<DriverHomeScreen> createState() => _DriverHomeScreenState();
@@ -20,36 +24,100 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
   StreamSubscription<Position>? _positionStreamSubscription;
   bool _isFirstLocationUpdate = true;
 
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   _startListeningLocation();
+  //
+  //   Future.microtask(() async {
+  //     // bool granted = await FlutterOverlayWindow.isPermissionGranted();
+  //     // if (!granted) {
+  //     //   await FlutterOverlayWindow.requestPermission();
+  //     // }
+  //
+  //     final savedStatus = await SharedPrefsHelper.getDriverStatus();
+  //     final statusToSet = savedStatus ?? "OF";
+  //     if (statusToSet == "OL" || statusToSet == "OF") {
+  //       print("Driver is not on a trip. Clearing any stale trip data...");
+  //       await ref.read(tripProvider.notifier).reset();
+  //     }
+  //     if (ref.read(driverStatusProvider) != statusToSet) {
+  //       await setDriverStatus(statusToSet);
+  //     }
+  //    // if (granted && statusToSet == "OL") {
+  //     if (statusToSet == "OL") {
+  //       final pos = SharedPrefsHelper.getOverlayPosition();
+  //       final savedX = pos["x"]?.toDouble();
+  //       final savedY = pos["y"]?.toDouble();
+  //       // await RideOverlayHelper.showOverlay(
+  //       //   context,
+  //       //   posX: savedX,
+  //       //   posY: savedY,
+  //       // );
+  //     }
+  //     initFirebaseMessaging(rootNavigatorKey, ref);
+  //   });
+  // }
+
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   _startListeningLocation();
+  //   WidgetsBinding.instance.addPostFrameCallback((_) async {
+  //     final savedStatus = await SharedPrefsHelper.getDriverStatus();
+  //     final statusToSet = savedStatus ?? "OF";
+  //     ref.read(driverStatusProvider.notifier).state = statusToSet;
+  //     if (statusToSet == "OL" || statusToSet == "OF") {
+  //       print("Driver is not on a trip. Clearing any stale trip data...");
+  //       await ref.read(tripProvider.notifier).reset();
+  //     }
+  //
+  //     if (statusToSet == "OL") {
+  //       final pos = SharedPrefsHelper.getOverlayPosition();
+  //       final savedX = pos["x"]?.toDouble();
+  //       final savedY = pos["y"]?.toDouble();
+  //       // await RideOverlayHelper.showOverlay(
+  //       //   context,
+  //       //   posX: savedX,
+  //       //   posY: savedY,
+  //       // );
+  //     }
+  //     initFirebaseMessaging(rootNavigatorKey, ref);
+  //   });
+  // }
+
   @override
   void initState() {
     super.initState();
+    WakelockPlus.enable();
+
+    if (widget.initialLat != null && widget.initialLng != null) {
+      _currentLocation = LatLng(widget.initialLat!, widget.initialLng!);
+
+      _markers = {
+        Marker(
+          markerId: const MarkerId("currentLocation"),
+          position: _currentLocation!,
+          infoWindow: const InfoWindow(title: "You are here"),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        ),
+      };
+    }
     _startListeningLocation();
-
-    Future.microtask(() async {
-      // bool granted = await FlutterOverlayWindow.isPermissionGranted();
-      // if (!granted) {
-      //   await FlutterOverlayWindow.requestPermission();
-      // }
-
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final savedStatus = await SharedPrefsHelper.getDriverStatus();
       final statusToSet = savedStatus ?? "OF";
+      ref.read(driverStatusProvider.notifier).state = statusToSet;
       if (statusToSet == "OL" || statusToSet == "OF") {
         print("Driver is not on a trip. Clearing any stale trip data...");
         await ref.read(tripProvider.notifier).reset();
       }
-      if (ref.read(driverStatusProvider) != statusToSet) {
-        await setDriverStatus(statusToSet);
-      }
-     // if (granted && statusToSet == "OL") {
+
       if (statusToSet == "OL") {
         final pos = SharedPrefsHelper.getOverlayPosition();
         final savedX = pos["x"]?.toDouble();
         final savedY = pos["y"]?.toDouble();
-        // await RideOverlayHelper.showOverlay(
-        //   context,
-        //   posX: savedX,
-        //   posY: savedY,
-        // );
+        // await RideOverlayHelper.showOverlay(...);
       }
       initFirebaseMessaging(rootNavigatorKey, ref);
     });
@@ -76,42 +144,43 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
     }
     if (permission == LocationPermission.deniedForever) return;
 
-    _positionStreamSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10,
-      ),
-    ).listen((Position position) {
-      if (!mounted) return;
-
-      setState(() {
-        _currentLocation = LatLng(position.latitude, position.longitude);
-        _markers = {
-          Marker(
-            markerId: const MarkerId("currentLocation"),
-            position: _currentLocation!,
-            infoWindow: const InfoWindow(title: "You are here"),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueBlue,
-            ),
+    _positionStreamSubscription =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 10,
           ),
-        };
-      });
+        ).listen((Position position) {
+          if (!mounted) return;
 
-      if (_isFirstLocationUpdate) {
-        _centerMapOnDriver();
-        setState(() {
-          _isFirstLocationUpdate = false;
+          setState(() {
+            _currentLocation = LatLng(position.latitude, position.longitude);
+            _markers = {
+              Marker(
+                markerId: const MarkerId("currentLocation"),
+                position: _currentLocation!,
+                infoWindow: const InfoWindow(title: "You are here"),
+                icon: BitmapDescriptor.defaultMarkerWithHue(
+                  BitmapDescriptor.hueBlue,
+                ),
+              ),
+            };
+          });
+
+          if (_isFirstLocationUpdate) {
+            _centerMapOnDriver();
+            setState(() {
+              _isFirstLocationUpdate = false;
+            });
+          }
         });
-      }
-    });
   }
-
 
   @override
   void dispose() {
     _positionStreamSubscription?.cancel();
     _audioPlayer.dispose();
+    WakelockPlus.disable();
     super.dispose();
   }
 
@@ -313,8 +382,8 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
                   await setDriverStatus(newStatus);
                   // bool granted =
                   //     await FlutterOverlayWindow.isPermissionGranted();
-                //  if (granted && newStatus == "OL") {
-                  if ( newStatus == "OL") {
+                  //  if (granted && newStatus == "OL") {
+                  if (newStatus == "OL") {
                     final pos =
                         SharedPrefsHelper.getOverlayPosition(); // Map {"x": .., "y": ..}
                     final savedX = pos["x"]?.toDouble();
@@ -326,7 +395,7 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
                     // );
                   }
                   if (newStatus == "OF") {
-                  //  await RideOverlayHelper.closeOverlay();
+                    //  await RideOverlayHelper.closeOverlay();
                   }
                 },
               ),

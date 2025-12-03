@@ -3,7 +3,7 @@ class BookingDetail {
   final String userId;
   final String riderId;
   final String vehSubTypeId;
-  final String mobileNo;
+  final String userMobileNo;
   final String bookDate;
   final String pickupLocation;
   final String dropLocation;
@@ -17,13 +17,15 @@ class BookingDetail {
   final String toLatLong;
   final String tripStatus;
   final String otp;
+  final String ridermobileno;
+  final String vehno;
 
   BookingDetail({
     required this.bookingId,
     required this.userId,
     required this.riderId,
     required this.vehSubTypeId,
-    required this.mobileNo,
+    required this.userMobileNo,
     required this.bookDate,
     required this.pickupLocation,
     required this.dropLocation,
@@ -37,28 +39,32 @@ class BookingDetail {
     required this.toLatLong,
     required this.tripStatus,
     required this.otp,
+    required this.ridermobileno,
+    required this.vehno,
   });
 
   factory BookingDetail.fromJson(Map<String, dynamic> json) {
     return BookingDetail(
-      bookingId: json['Bookingid'] ?? '',
+      bookingId: json['bookingid'] ?? '',
       userId: json['userid'] ?? '',
-      riderId: json['Riderid'] ?? '',
-      vehSubTypeId: json['VehSubTypeid'] ?? '',
-      mobileNo: json['MobileNo'] ?? '',
-      bookDate: json['BookDate'] ?? '',
-      pickupLocation: json['pickupLocation'] ?? '',
-      dropLocation: json['dropLocation'] ?? '',
+      otp: json['otp'] ?? '',
+      riderId: json['riderid'] ?? '',
+      riderName: json['ridername'],
+      ridermobileno: json['ridermobileno'],
+      vehSubTypeId: json['vehsubtypeid'] ?? '',
+      userMobileNo: json['usermobileno'] ?? '',
+      bookDate: json['bookdate'] ?? '',
+      pickupLocation: json['pickuplocation'] ?? '',
+      dropLocation: json['droplocation'] ?? '',
+      vehno: json['vehno'] ?? '',
       distance: json['distance'] ?? '',
       fareAmount: json['fareAmount'] ?? '',
       finalAmt: json['finalamt'] ?? '',
       username: json['username'] ?? '',
-      riderName: json['ridername'],
       vehSubTypeName: json['vehsubtypename'] ?? '',
-      fromLatLong: json['FromLatLong'] ?? '',
-      toLatLong: json['ToLatLong'] ?? '',
-      tripStatus: json['TripStatus'] ?? '',
-      otp: json['otp'] ?? '',
+      fromLatLong: json['fromlatlong'] ?? '',
+      toLatLong: json['tolatlong'] ?? '',
+      tripStatus: json['tripstatus'] ?? '',
     );
   }
 }

@@ -727,7 +727,7 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
             ),
           ),
 
-          // 3️⃣ Floating Action Buttons Panel (bottom)
+        // 3️⃣ Floating Action Buttons Panel (bottom)
           Positioned(
             bottom: 20,
             left: 16,

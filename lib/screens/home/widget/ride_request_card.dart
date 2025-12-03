@@ -153,7 +153,7 @@ class RideRequestCard extends ConsumerWidget {
         request: BookingRequest(
           action: 'G',
           bookingId: rideRequest.bookingId.toString(),
-          riderId: riderId,
+          riderId: riderId.toString(),
         ),
       );
 

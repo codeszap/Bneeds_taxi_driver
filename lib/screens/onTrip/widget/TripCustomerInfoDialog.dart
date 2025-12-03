@@ -12,16 +12,12 @@ import '../TripNotifier.dart';
 class TripCustomerInfoDialog extends ConsumerWidget {
   final BookingDetail? bookingDetail;
 
-  const TripCustomerInfoDialog({
-    super.key,
-    this.bookingDetail,
-  });
-
+  const TripCustomerInfoDialog({super.key, this.bookingDetail});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (bookingDetail == null) {
-      return const Dialog(
+    return const Dialog(
         child: Padding(
           padding: EdgeInsets.all(20.0),
           child: Text("Booking details not available."),
@@ -74,58 +70,65 @@ class TripCustomerInfoDialog extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                _modernInfoRow(Icons.location_pin, "Pickup", bookingDetail!.pickupLocation),
+                _modernInfoRow(
+                  Icons.location_pin,
+                  "Pickup",
+                  bookingDetail!.pickupLocation,
+                ),
                 _modernInfoRow(Icons.flag, "Drop", bookingDetail!.dropLocation),
-                _modernInfoRow(Icons.attach_money, "Fare", "₹${bookingDetail?.fareAmount}"),
+                _modernInfoRow(
+                  Icons.attach_money,
+                  "Fare",
+                  "₹${bookingDetail?.fareAmount}",
+                ),
                 const Divider(height: 24, thickness: 1),
 
-                // // Customer Info Section
-                // if (userProfile != null) ...[
-                //   Row(
-                //     children: const [
-                //       Icon(Icons.person, color: Colors.blue),
-                //       SizedBox(width: 8),
-                //       Text(
-                //         "Customer Info",
-                //         style: TextStyle(
-                //           fontSize: 16,
-                //           fontWeight: FontWeight.bold,
-                //         ),
-                //       ),
-                //     ],
-                //   ),
-                //   const SizedBox(height: 8),
-                //   _modernInfoRow(
-                //     Icons.person_outline,
-                //     "Name",
-                //     userProfile!.userName,
-                //   ),
-                //   GestureDetector(
-                //     onTap: () async {
-                //       final phone = userProfile!.mobileNo;
-                //       final uri = Uri.parse("tel:$phone");
-                //       try {
-                //         await launchUrl(uri, mode: LaunchMode.platformDefault);
-                //       } catch (e) {
-                //         ScaffoldMessenger.of(context).showSnackBar(
-                //           SnackBar(content: Text("Error opening dialer: $e")),
-                //         );
-                //       }
-                //     },
-                //     child: _modernInfoRow(
-                //       Icons.phone,
-                //       "Mobile",
-                //       userProfile!.mobileNo,
-                //     ),
-                //   ),
-                //
-                //   _modernInfoRow(
-                //     Icons.home,
-                //     "Address",
-                //     "${userProfile!.address1}, ${userProfile!.address2}, ${userProfile!.city}",
-                //   ),
-                // ],
+                // Customer Info Section
 
+                  Row(
+                    children: const [
+                      Icon(Icons.person, color: Colors.blue),
+                      SizedBox(width: 8),
+                      Text(
+                        "Customer Info",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _modernInfoRow(
+                    Icons.person_outline,
+                    "Name",
+                    bookingDetail!.username,
+                  ),
+                  GestureDetector(
+                    onTap: () async {
+                      final phone = bookingDetail!.userMobileNo;
+                      final uri = Uri.parse("tel:$phone");
+                      try {
+                        await launchUrl(uri, mode: LaunchMode.platformDefault);
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Error opening dialer: $e")),
+                        );
+                      }
+                    },
+                    child: _modernInfoRow(
+                      Icons.phone,
+                      "Mobile",
+                      bookingDetail!.userMobileNo,
+                    ),
+                  ),
+
+                  // _modernInfoRow(
+                  //   Icons.home,
+                  //   "Address",
+                  //   "${bookingDetail!.address1}, ${bookingDetail!.address2}, ${bookingDetail!.city}",
+                  // ),
+                  //
                 const SizedBox(height: 20),
 
                 // Close Button
@@ -135,10 +138,19 @@ class TripCustomerInfoDialog extends ConsumerWidget {
                     children: [
                       ElevatedButton(
                         onPressed: () async {
+                          // 🔹 Step 1: `await` seivatharku munbu, `context`, `ref`, matrum `container`-ai save seiyavum.
+                          // Indha`context`-ai thaan `await` ku piragu payanpadutha vendum.
+                          final currentContext = context;
+                          final container = ProviderScope.containerOf(currentContext, listen: false);
+                          // `ref` aiyum munkoottiye read seithu, antha `repo`-vai save seithukollalam.
+                          final repo = ref.read(driverRepositoryProvider);
+
+                          // 🔹 Step 2: Cancel reason-ஐ dialog moolam vaangavum.
                           final String? cancelReason = await showDialog<String>(
-                            context: context,
+                            context: currentContext, // Inga save seitha `currentContext`-ஐ payanpaduthavum.
                             barrierDismissible: false,
                             builder: (ctx) {
+                              // Indha dialog code-il entha maattrangalum thevai illai.
                               final reasons = <String>[
                                 "Customer not available",
                                 "Wrong pickup location",
@@ -155,10 +167,8 @@ class TripCustomerInfoDialog extends ConsumerWidget {
                                       selectedIndex == reasons.length - 1;
                                   final bool canConfirm =
                                       selectedIndex != -1 &&
-                                      (!(isOtherSelected) ||
-                                          otherController.text
-                                              .trim()
-                                              .isNotEmpty);
+                                          (!isOtherSelected ||
+                                              otherController.text.trim().isNotEmpty);
 
                                   return AlertDialog(
                                     title: const Text("Cancel Ride"),
@@ -166,9 +176,7 @@ class TripCustomerInfoDialog extends ConsumerWidget {
                                       child: Column(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          const Text(
-                                            "Select a reason for cancellation:",
-                                          ),
+                                          const Text("Select a reason for cancellation:"),
                                           const SizedBox(height: 12),
                                           ...List.generate(reasons.length, (i) {
                                             return RadioListTile<int>(
@@ -198,8 +206,7 @@ class TripCustomerInfoDialog extends ConsumerWidget {
                                     ),
                                     actions: [
                                       TextButton(
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(null),
+                                        onPressed: () => Navigator.of(context).pop(null),
                                         child: const Text("Close"),
                                       ),
                                       ElevatedButton(
@@ -208,14 +215,11 @@ class TripCustomerInfoDialog extends ConsumerWidget {
                                         ),
                                         onPressed: canConfirm
                                             ? () {
-                                                final reason = isOtherSelected
-                                                    ? otherController.text
-                                                          .trim()
-                                                    : reasons[selectedIndex];
-                                                Navigator.of(
-                                                  context,
-                                                ).pop(reason);
-                                              }
+                                          final reason = isOtherSelected
+                                              ? otherController.text.trim()
+                                              : reasons[selectedIndex];
+                                          Navigator.of(context).pop(reason);
+                                        }
                                             : null,
                                         child: const Text("Confirm Cancel"),
                                       ),
@@ -226,87 +230,70 @@ class TripCustomerInfoDialog extends ConsumerWidget {
                             },
                           );
 
-                          if (cancelReason != null) {
+                          // 🔹 Step 3: `await` ku piragu, `context` in nilaiyai `mounted` property moolam check seiyavum.
+                          // `currentContext.mounted` enbathu, antha widget ippozhuthum UI-il irukkiratha enbathai uruthi seiyum.
+                          if (cancelReason != null && currentContext.mounted) {
                             // 🔹 Cancel API call
-                            final lastBookingId =
-                                SharedPrefsHelper.getBookingId();
-
+                            final lastBookingId = SharedPrefsHelper.getBookingId();
                             final cancelModel = CancelModel(
                               decline_reason: cancelReason,
                               Bookingid: lastBookingId,
                             );
 
-                            final success = await ProfileRepository()
-                                .cancelBooking(cancelModel);
+                            final success = await ProfileRepository().cancelBooking(cancelModel);
+
+                            // `mounted` property-ai marubadiyum check seivathu nallathu, network call neram eduthirukkalam.
+                            if (!currentContext.mounted) return;
 
                             if (success) {
                               await SharedPrefsHelper.clearBookingId();
-                              final container = ProviderScope.containerOf(
-                                context,
-                                listen: false,
-                              );
                               container.read(tripProvider.notifier).reset();
-                              if (context.mounted) {
-                                final position = await Geolocator.getCurrentPosition(
-                                  desiredAccuracy: LocationAccuracy.high,
-                                );
-                                final fromLatLong = "${position.latitude},${position.longitude}";
 
-                                container
-                                        .read(driverStatusProvider.notifier)
-                                        .state =
-                                    "OL";
-                                await SharedPrefsHelper.setDriverStatus("OL");
-                                final repo = ref.read(driverRepositoryProvider);
-                                final riderId = SharedPrefsHelper.getRiderId();
-                                final response = await repo.updateDriverStatus(
-                                  riderId: riderId,
-                                  riderStatus: "OL",
-                                  fromLatLong: fromLatLong,
-                                );
-                                // if(response != null){
-                                //   FirebasePushService.sendPushNotification(
-                                //     fcmToken: customerToken!,
-                                //     title: "Rider Cancel Ride",
-                                //     body: "Ride Cancelled By Rider",
-                                //     data: {
-                                //       "status": "cancel ride",
-                                //       "reason": "Unable to pickup",
-                                //     },
-                                //   );
-                                //   ScaffoldMessenger.of(context).showSnackBar(
-                                //     const SnackBar(
-                                //       content: Text(
-                                //         "Ride cancelled successfully ✅",
-                                //       ),
-                                //       backgroundColor: Colors.green,
-                                //     ),
-                                //   );
-                                //
-                                //   Navigator.of(
-                                //     context,
-                                //   ).pop(); // close TripCustomerInfoDialog
-                                //   // Navigate home
-                                //
-                                //   Future.delayed(
-                                //     Duration.zero,
-                                //         () => router.go(AppRoutes.driverHome),
-                                //   );
-                                // }
-                                //
+                              final position = await Geolocator.getCurrentPosition(
+                                desiredAccuracy: LocationAccuracy.high,
+                              );
+                              final fromLatLong = "${position.latitude},${position.longitude}";
 
-                              }
+                              // Riverpod state-ai update seiyavum
+                              container.read(driverStatusProvider.notifier).state = "OL";
+                              await SharedPrefsHelper.setDriverStatus("OL");
+                              final riderId = SharedPrefsHelper.getRiderId();
+
+                              // Munadiyae edutha `repo`-vai inga payanpaduthavum.
+                              await repo.updateDriverStatus(
+                                riderId: riderId,
+                                riderStatus: "OL",
+                                fromLatLong: fromLatLong,
+                              );
+
+                              // UI-il feedback kaatta `ScaffoldMessenger`-ai payanpaduthavum.
+                              ScaffoldMessenger.of(currentContext).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Ride cancelled successfully ✅"),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+
+                              // Anaithu dialog-kalaiyum moodi, home screen-ku sellavum.
+                              Navigator.of(currentContext).pop(); // TripCustomerInfoDialog-ai close seiyum
+
+                              // GoRouter-ai payanpaduthi Home screen-ku navigate seiyavum.
+                              router.go(
+                                AppRoutes.driverHome,
+                                extra: {
+                                  'initialLat': position.latitude,
+                                  'initialLng': position.longitude,
+                                },
+                              );
+
                             } else {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      "Failed to cancel ride. Please try again.",
-                                    ),
-                                    backgroundColor: Colors.redAccent,
-                                  ),
-                                );
-                              }
+                              // API call fail aanaal, error message kaattavum.
+                              ScaffoldMessenger.of(currentContext).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Failed to cancel ride. Please try again."),
+                                  backgroundColor: Colors.redAccent,
+                                ),
+                              );
                             }
                           }
                         },

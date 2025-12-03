@@ -1,4 +1,4 @@
-package com.example.bneeds_taxi_driver
+package com.nminfotech.bneeds_taxi_driver
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 

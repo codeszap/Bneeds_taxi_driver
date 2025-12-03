@@ -98,7 +98,7 @@ class FinalBooking {
 class FinalBookingRequest {
   final List<FinalBooking> finalBookingUpdate;
 
-  FinalBookingRequest({required this.finalBookingUpdate});
+FinalBookingRequest({required this.finalBookingUpdate});
 
   Map<String, dynamic> toJson() {
     return {

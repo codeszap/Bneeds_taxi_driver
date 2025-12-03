@@ -1,12 +1,11 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bneeds_taxi_driver/utils/storage.dart';
-
-import '../models/TripState.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../utils/fcmHelper.dart';
-import 'onTrip/TripNotifier.dart';
 
 class DriverSplashScreen extends ConsumerStatefulWidget {
   const DriverSplashScreen({super.key});
@@ -23,6 +22,7 @@ class _DriverSplashScreenState extends ConsumerState<DriverSplashScreen> {
   }
 
   Future<void> _initializeAndNavigate() async {
+    await _checkNotificationPermission();
     await FcmHelper.syncTokenWithServer();
     _checkNavigation();
 
@@ -30,6 +30,14 @@ class _DriverSplashScreenState extends ConsumerState<DriverSplashScreen> {
     final locationService = ref.read(driverLocationServiceProvider);
     locationService.setupLocationUpdater(driverStatus);
   }
+
+  Future<void> _checkNotificationPermission() async {
+    var status = await Permission.notification.status;
+    if (status.isDenied) {
+      await Permission.notification.request();
+    }
+  }
+
 
   Future<void> _checkNavigation() async {
     // splash delay
