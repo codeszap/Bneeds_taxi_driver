@@ -1,7 +1,8 @@
+import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bneeds_taxi_driver/utils/storage.dart';
-
+import 'package:flutter/foundation.dart';
 
 final generatedOtpProvider = StateProvider<String?>((ref) => null);
 
@@ -22,14 +23,21 @@ Future<void> sendOTP({
     final message = "microotp~$otp";
 
     // 4. Build URL for SMS API
-    final url = Uri.parse(
-      "https://nminfotech.in/smsautosend.aspx"
-      "?id=RAMMTR"
-      "&PWD=RAMMTR"
-      "&mob=$phoneNumber"
-      "&msg=$message"
-      "&tm=T",
-    );
+    var urlString =
+        "https://nminfotech.in/smsautosend.aspx"
+        "?id=RAMMTR"
+        "&PWD=RAMMTR"
+        "&mob=$phoneNumber"
+        "&msg=$message"
+        "&tm=T";
+
+    // If on Web, use a CORS proxy to bypass browser restrictions
+    if (kIsWeb) {
+      // Use thingproxy as alternative
+      urlString = "https://thingproxy.freeboard.io/fetch/$urlString";
+    }
+
+    final url = Uri.parse(urlString);
 
     // Print URL in console for debugging
     print("OTP URL: $url");
@@ -37,16 +45,25 @@ Future<void> sendOTP({
     // 5. Send OTP via SMS API
     final response = await http.get(url);
 
-    if (response.statusCode == 200) {
-      onCodeSent();
+    if (kIsWeb) {
+      // Check proxy response
+      if (response.statusCode == 200) {
+        onCodeSent();
+      } else {
+        print("Proxy Error Body: ${response.body}");
+        onError("Failed to send OTP via proxy: ${response.statusCode}");
+      }
     } else {
-      onError("Failed to send OTP: ${response.body}");
+      if (response.statusCode == 200) {
+        onCodeSent();
+      } else {
+        onError("Failed to send OTP: ${response.body}");
+      }
     }
   } catch (e) {
     onError("Error sending OTP: ${e.toString()}");
   }
 }
-
 
 Future<bool> verifyOTPAndCheckUser({
   required WidgetRef ref,
@@ -63,7 +80,7 @@ Future<bool> verifyOTPAndCheckUser({
 
   if (otp != generatedOtp) {
     throw Exception("Invalid OTP");
-  } 
+  }
 
   try {
     // fetch rider profiles as list
@@ -84,4 +101,3 @@ Future<bool> verifyOTPAndCheckUser({
     return false;
   }
 }
-

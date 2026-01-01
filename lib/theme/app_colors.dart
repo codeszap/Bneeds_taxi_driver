@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-
 class AppColors {
   static const Color primary = Color(0xFFFFB300); // Darker amber for buttons
-  static const Color secondary = Color(0xFFFFECB3); // Soft light yellow for fields
+  static const Color secondary = Color(
+    0xFFFFECB3,
+  ); // Soft light yellow for fields
   static const Color link = Color(0xFFFFA000); // Accent for links / highlights
   static const Color background = Color(0xFFFDF6E3); // Soft cream / off-white
   static const Color text = Color(0xFF212121); // Dark text for readability
@@ -22,7 +23,6 @@ class AppColors {
   static const Color infoCardGradientStart = Color(0xFF6DD5FA);
   static const Color infoCardGradientEnd = Color(0xFFFFFFFF);
 }
-
 
 class AppTextStyles {
   static const TextStyle appBarTitle = TextStyle(
@@ -50,27 +50,28 @@ class AppTextStyles {
   );
 
   static const TextStyle subHeading = TextStyle(
-  fontSize: 16,
-  fontWeight: FontWeight.w500,
-  color: Colors.black87,
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+    color: Colors.black87,
   );
 
   static const TextStyle important = TextStyle(
-  fontSize: 16,
-  fontWeight: FontWeight.bold,
-  color: Colors.blueAccent,
+    fontSize: 16,
+    fontWeight: FontWeight.bold,
+    color: Colors.blueAccent,
   );
 
   static TextStyle heading({Color color = Colors.black, double size = 20}) {
-    return TextStyle(
-      fontWeight: FontWeight.bold,
-      fontSize: size,
-      color: color,
-    );
+    return TextStyle(fontWeight: FontWeight.bold, fontSize: size, color: color);
   }
 
   // Content text with optional importance
-  static TextStyle content({bool isImportant = false, Color color = Colors.black87, double size = 16, Color? importantColor}) {
+  static TextStyle content({
+    bool isImportant = false,
+    Color color = Colors.black87,
+    double size = 16,
+    Color? importantColor,
+  }) {
     return TextStyle(
       fontSize: size,
       fontWeight: isImportant ? FontWeight.bold : FontWeight.w500,
@@ -80,46 +81,8 @@ class AppTextStyles {
 
   // Button text
   static TextStyle button({Color color = Colors.white, double size = 16}) {
-    return TextStyle(
-      fontWeight: FontWeight.bold,
-      fontSize: size,
-      color: color,
-    );
+    return TextStyle(fontWeight: FontWeight.bold, fontSize: size, color: color);
   }
-  }
-
-
-class AppTheme {
-  static ThemeData lightTheme = ThemeData(
-    scaffoldBackgroundColor: AppColors.background,
-    appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.primary,
-      foregroundColor: AppColors.buttonText,
-      elevation: 0,
-      titleTextStyle: AppTextStyles.appBarTitle,
-    ),
-    primaryColor: AppColors.primary,
-    colorScheme: ColorScheme.fromSwatch().copyWith(
-      primary: AppColors.primary,
-      secondary: AppColors.secondary,
-      error: AppColors.error,
-      background: AppColors.background,
-    ),
-    textTheme: const TextTheme(
-      bodyMedium: AppTextStyles.bodyText,
-      labelLarge: AppTextStyles.buttonText,
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.buttonText,
-        textStyle: AppTextStyles.buttonText,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    ),
-  );
 }
 
 class AppDimensions {

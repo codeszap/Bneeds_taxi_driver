@@ -2,6 +2,7 @@ import '../models/rideRequest.dart';
 import '../theme/app_colors.dart';
 import 'home/driverHomeScreen.dart';
 import 'package:flutter/material.dart';
+
 class RideRequestScreen extends StatelessWidget {
   final RideRequest rideRequest;
 
@@ -28,13 +29,10 @@ class RideRequestScreen extends StatelessWidget {
     // Same card UI as your foreground RideRequestCard
     return Scaffold(
       backgroundColor: Colors.black54,
-      body: Center(
-        child: RideRequestCards(rideRequest: rideRequest),
-      ),
+      body: Center(child: RideRequestCards(rideRequest: rideRequest)),
     );
   }
 }
-
 
 class RideRequestCards extends StatelessWidget {
   final RideRequest rideRequest;
@@ -56,20 +54,37 @@ class RideRequestCards extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              "Pickup: ${rideRequest.pickup}",
-              style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              "Drop: ${rideRequest.drop}",
-              style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              "Fare: ₹${rideRequest.fare}",
-              style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.bold),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Pickup: ${rideRequest.pickup}",
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Drop: ${rideRequest.drop}",
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Fare: ₹${rideRequest.fare}",
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             Row(
@@ -77,22 +92,19 @@ class RideRequestCards extends StatelessWidget {
               children: [
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green),
+                    backgroundColor: Colors.green,
+                  ),
                   onPressed: () {
                     // Accept ride logic
                     print("Ride Accepted ✅");
-                    // Stop ringtone if playing
-                    // Navigate to trip screen
                   },
                   child: const Text("Accept"),
                 ),
                 ElevatedButton(
-                  style:
-                  ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                   onPressed: () {
                     // Reject ride logic
                     print("Ride Rejected ❌");
-                    // Close card
                     Navigator.pop(context);
                   },
                   child: const Text("Reject"),
@@ -105,4 +117,3 @@ class RideRequestCards extends StatelessWidget {
     );
   }
 }
-

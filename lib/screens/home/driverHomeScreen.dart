@@ -4,6 +4,8 @@ import 'package:bneeds_taxi_driver/utils/storage.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../core/locationHelper.dart';
 import '../../services/RideOverlayHelper.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../services/app_update_service.dart';
 import '../onTrip/TripNotifier.dart';
 
 class DriverHomeScreen extends ConsumerStatefulWidget {
@@ -89,6 +91,11 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
   @override
   void initState() {
     super.initState();
+    // Check for updates
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForUpdates();
+    });
+
     WakelockPlus.enable();
 
     if (widget.initialLat != null && widget.initialLng != null) {
@@ -182,6 +189,57 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
     _audioPlayer.dispose();
     WakelockPlus.disable();
     super.dispose();
+  }
+
+  void _checkForUpdates() async {
+    await RemoteConfigHelper.init();
+    if (await RemoteConfigHelper.shouldUpdate()) {
+      if (mounted) {
+        _showUpdateDialog(RemoteConfigHelper.isForceUpdate);
+      }
+    }
+  }
+
+  void _showUpdateDialog(bool isForceUpdate) {
+    showDialog(
+      context: context,
+      barrierDismissible: !isForceUpdate,
+      builder: (context) {
+        return WillPopScope(
+          onWillPop: () async => !isForceUpdate,
+          child: AlertDialog(
+            title: const Text("Update Available 🚀"),
+            content: Text(
+              isForceUpdate
+                  ? "A critical update is available. You must update to continue using the app."
+                  : "A new version of the app is available. Would you like to update now?",
+            ),
+            actions: [
+              if (!isForceUpdate)
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Later"),
+                ),
+              ElevatedButton(
+                onPressed: () {
+                  _launchStoreUrl();
+                },
+                child: const Text("Update Now"),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _launchStoreUrl() async {
+    const url =
+        "https://play.google.com/store/apps/details?id=com.nminfotech.bneeds_taxi_driver";
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   Future<void> _getCurrentLocation() async {

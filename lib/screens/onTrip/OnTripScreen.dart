@@ -1,3 +1,13 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'package:go_router/go_router.dart';
+import 'package:bneeds_taxi_driver/config/routes.dart';
+import 'package:bneeds_taxi_driver/utils/constants.dart';
 import 'package:bneeds_taxi_driver/screens/onTrip/widget/TripCustomerInfoDialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
@@ -270,7 +280,49 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
     print("Start: ${start.latitude}, ${start.longitude}");
     print("End: ${end.latitude}, ${end.longitude}");
 
-    // Use the legacy PolylinePoints instance
+    if (kIsWeb) {
+      final url =
+          "https://maps.googleapis.com/maps/api/directions/json?origin=${start.latitude},${start.longitude}&destination=${end.latitude},${end.longitude}&key=$googleApiKey&mode=driving";
+      final proxyUrl = "https://thingproxy.freeboard.io/fetch/$url";
+
+      try {
+        final response = await http.get(Uri.parse(proxyUrl));
+        if (response.statusCode == 200) {
+          final contents = json.decode(response.body);
+          if (contents['status'] == 'OK') {
+            final points = contents['routes'][0]['overview_polyline']['points'];
+            List<PointLatLng> resultPoints = PolylinePoints.decodePolyline(
+              points,
+            );
+
+            if (mounted) {
+              setState(() {
+                polylineCoordinates = resultPoints
+                    .map((point) => LatLng(point.latitude, point.longitude))
+                    .toList();
+              });
+
+              if (_mapController != null) {
+                if (_apiTripStatus == "O") {
+                  _focusDriverAndPickup();
+                } else if (_apiTripStatus == "P") {
+                  _focusPickupAndDrop();
+                }
+              }
+            }
+            return;
+          } else {
+            print(
+              "Google Maps API Error: ${contents['status']} - ${contents['error_message']}",
+            );
+          }
+        }
+      } catch (e) {
+        print("Error fetching directions via proxy: $e");
+      }
+    }
+
+    // Fallback to legacy behavior for mobile or if proxy fails
     PolylinePoints polylinePoints = PolylinePoints.legacy(googleApiKey);
 
     // Create a PolylineRequest
@@ -320,7 +372,7 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
     _lastRouteLng = 0;
   }
 
-// In OnTripScreen.dart
+  // In OnTripScreen.dart
 
   void _moveTaxiToDrop() async {
     // Step 1: Check if essential data is available
@@ -413,7 +465,7 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
           bookingId: _bookingDetail!.bookingId.toString(),
           tripStatus: "D", // "D" for Dropped/Completed
           toLatLong:
-          "${_currentPosition!.latitude},${_currentPosition!.longitude}",
+              "${_currentPosition!.latitude},${_currentPosition!.longitude}",
         );
         // --- 👆 ITHA SARI PANNUNGA END 👆 ---
 
@@ -441,7 +493,8 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                    response.message ?? 'Failed to complete trip. Try again.'),
+                  response.message ?? 'Failed to complete trip. Try again.',
+                ),
                 backgroundColor: Colors.red,
               ),
             );
@@ -453,9 +506,7 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                "An error occurred. Please check your connection.",
-              ),
+              content: Text("An error occurred. Please check your connection."),
               backgroundColor: Colors.red,
             ),
           );
@@ -463,7 +514,6 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
       }
     }
   }
-
 
   @override
   void dispose() {
@@ -473,7 +523,6 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
     WakelockPlus.disable();
     super.dispose();
   }
-
 
   void _onOtpVerified() async {
     // Step 1: Mudal'la thevayana data ellam irukkaanu check pannikonga
@@ -487,7 +536,7 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
       bookingId: _bookingDetail!.bookingId.toString(),
       tripStatus: "P",
       fromLatLong:
-      "${_currentPosition!.latitude},${_currentPosition!.longitude}",
+          "${_currentPosition!.latitude},${_currentPosition!.longitude}",
     );
 
     final tripUpdateRequest = RiderTripUpdateRequest(
@@ -544,15 +593,15 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
 
         // Map camera-va puthu route-ku focus pannunga
         _focusCameraOnRoute(driverLatLng, dropLatLng);
-
       } else {
         // API fail aagum pothu
         print('❌ API Error: Trip update failed. Message: ${response.message}');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content:
-              Text(response.message ?? 'Could not update trip. Try again.'),
+              content: Text(
+                response.message ?? 'Could not update trip. Try again.',
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -571,7 +620,6 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
       }
     }
   }
-
 
   void _focusCameraOnRoute(LatLng start, LatLng end) {
     if (_mapController == null) return;
@@ -639,14 +687,12 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
 
   void showTripCustomerInfoDialog(
     BuildContext context,
-      BookingDetail? booking,
+    BookingDetail? booking,
   ) {
     showDialog(
       context: context,
       builder: (context) {
-        return TripCustomerInfoDialog(
-          bookingDetail: booking,
-        );
+        return TripCustomerInfoDialog(bookingDetail: booking);
       },
     );
   }
@@ -727,7 +773,7 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
             ),
           ),
 
-        // 3️⃣ Floating Action Buttons Panel (bottom)
+          // 3️⃣ Floating Action Buttons Panel (bottom)
           Positioned(
             bottom: 20,
             left: 16,

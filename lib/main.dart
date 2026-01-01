@@ -1,16 +1,23 @@
-
 import 'dart:isolate';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:bneeds_taxi_driver/screens/home/riderOverlayScreen.dart';
-import 'package:bneeds_taxi_driver/services/RideOverlayHelper.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bneeds_taxi_driver/utils/storage.dart';
-
+import 'package:geolocator/geolocator.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import 'package:bneeds_taxi_driver/firebase_options.dart';
+import 'package:bneeds_taxi_driver/utils/constants.dart';
+import 'package:bneeds_taxi_driver/utils/storage.dart';
+import 'package:bneeds_taxi_driver/theme/app_theme.dart';
+import 'package:bneeds_taxi_driver/config/routes.dart';
+import 'package:bneeds_taxi_driver/screens/home/riderOverlayScreen.dart';
+import 'package:bneeds_taxi_driver/utils/sharedPrefrencesHelper.dart';
+
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-FlutterLocalNotificationsPlugin();
+    FlutterLocalNotificationsPlugin();
 
 class AppLauncher {
   static const platform = MethodChannel('overlay_channel');
@@ -36,10 +43,13 @@ Future<void> setupNotificationChannel() async {
 
   await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<
-      AndroidFlutterLocalNotificationsPlugin>()
+        AndroidFlutterLocalNotificationsPlugin
+      >()
       ?.createNotificationChannel(channel);
 }
+
 void setupOverlayListener() {
+  if (kIsWeb) return;
   // Check if a SendPort is already registered
   if (IsolateNameServer.lookupPortByName('MainApp') == null) {
     ReceivePort receivePort = ReceivePort(); // create a ReceivePort
@@ -55,14 +65,23 @@ void setupOverlayListener() {
   }
 }
 
-
 final container = ProviderContainer();
 late ProviderContainer providerContainer;
-Future<void> main() async {
 
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await setupNotificationChannel();
-  await Firebase.initializeApp();
+  if (!kIsWeb) {
+    await setupNotificationChannel();
+  }
+  if (Firebase.apps.isEmpty) {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } catch (e) {
+      debugPrint("Firebase initialization failed: $e");
+    }
+  }
   await SharedPrefsHelper.init();
   await _initPermissions();
   setupOverlayListener();
@@ -74,13 +93,9 @@ Future<void> main() async {
 void overlayMain() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
-    MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: RiderOverlayScreen(),
-    ),
+    MaterialApp(debugShowCheckedModeBanner: false, home: RiderOverlayScreen()),
   );
 }
-
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -90,7 +105,6 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-
   @override
   void initState() {
     super.initState();
@@ -102,29 +116,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
-
-  // @override
-  // void didChangeAppLifecycleState(AppLifecycleState state) {
-  //   super.didChangeAppLifecycleState(state);
-  //
-  //   switch (state) {
-  //     case AppLifecycleState.resumed:
-  //     // Foreground → close overlay
-  //       RideOverlayHelper.closeOverlay();
-  //       break;
-  //     case AppLifecycleState.paused:
-  //     case AppLifecycleState.hidden:
-  //     // Background → show overlay
-  //       RideOverlayHelper.showOverlay();
-  //       break;
-  //     case AppLifecycleState.inactive:
-  //       RideOverlayHelper.showOverlay();
-  //       break;
-  //     case AppLifecycleState.detached:
-  //       RideOverlayHelper.closeOverlay();
-  //       break;
-  //   }
-  // }
 
   @override
   Widget build(BuildContext context) {
@@ -145,31 +136,3 @@ Future<void> _initPermissions() async {
     // Prompt user to open settings
   }
 }
-
-
-// import 'package:bneeds_taxi_driver/sample.dart';
-// import 'package:flutter/material.dart';
-// import 'package:flutter_riverpod/flutter_riverpod.dart';
-// // Step 2: Main function to start the app
-// void main() {
-//   // Unga MyApp-eh ProviderScope-la wrap pannunga
-//   runApp(const ProviderScope(child: MyApp()));
-// }
-//
-// // Step 3: Root Widget (MyApp) - Usually a StatelessWidget
-// class MyApp extends StatelessWidget {
-//   const MyApp({super.key});
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     // MaterialApp provides Material Design styling and features (like navigation)
-//     return MaterialApp(
-//       title: 'My First App',
-//       theme: ThemeData(
-//         primarySwatch: Colors.blue,
-//       ),
-//       home:  Demo(),
-//     );
-//   }
-// }
-

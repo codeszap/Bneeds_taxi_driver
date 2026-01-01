@@ -1,32 +1,13 @@
 {
   "project_info": {
-    "project_number": "95410041871",
-    "project_id": "bneeds-taxi-driver",
-    "storage_bucket": "bneeds-taxi-driver.firebasestorage.app"
+    "project_number": "1001711203204",
+    "project_id": "bneeds-taxi-driver-5ecff",
+    "storage_bucket": "bneeds-taxi-driver-5ecff.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:95410041871:android:2be64ceae6efbb7ccb1f7a",
-        "android_client_info": {
-          "package_name": "com.example.bneeds_taxi_driver"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDQZWiFLwkxMezZ5xxKwGCFx7i6gmRVgCc"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:95410041871:android:5810dcd127e57de6cb1f7a",
+        "mobilesdk_app_id": "1:1001711203204:android:477bb6cf26438dbdb923d1",
         "android_client_info": {
           "package_name": "com.nminfotech.bneeds_taxi_driver"
         }
@@ -34,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDQZWiFLwkxMezZ5xxKwGCFx7i6gmRVgCc"
+          "current_key": "AIzaSyDND0nsAjB-hf-dG0-4k5nHsLNG-aAJvuI"
         }
       ],
       "services": {

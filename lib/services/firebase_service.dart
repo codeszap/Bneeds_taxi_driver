@@ -15,19 +15,21 @@ import '../utils/constants.dart';
 import '../utils/sharedPrefrencesHelper.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-FlutterLocalNotificationsPlugin();
+    FlutterLocalNotificationsPlugin();
 
 // 🚨 Notification channel with custom sound
-const AndroidNotificationChannel rideRequestChannel = AndroidNotificationChannel(
-  'ride_request_channel',
-  'Ride Requests',
-  description: 'Incoming ride requests',
-  importance: Importance.max,
-  playSound: true,
-  sound: RawResourceAndroidNotificationSound('ride_request'), // no extension
-  //fullScreenIntent: true,
-);
-
+const AndroidNotificationChannel rideRequestChannel =
+    AndroidNotificationChannel(
+      'ride_request_channel',
+      'Ride Requests',
+      description: 'Incoming ride requests',
+      importance: Importance.max,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound(
+        'ride_request',
+      ), // no extension
+      //fullScreenIntent: true,
+    );
 
 // Background handler
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -71,12 +73,11 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   );
 }
 
-
 // Init FCM
 Future<void> initFirebaseMessaging(
-    GlobalKey<NavigatorState> navigatorKey,
-    WidgetRef ref,
-    ) async {
+  GlobalKey<NavigatorState> navigatorKey,
+  WidgetRef ref,
+) async {
   await Firebase.initializeApp();
 
   // Local notifications init
@@ -86,7 +87,9 @@ Future<void> initFirebaseMessaging(
   await flutterLocalNotificationsPlugin.initialize(
     initSettings,
     onDidReceiveNotificationResponse: (details) async {
-      final data = details.payload != null ? jsonDecode(details.payload!) : null;
+      final data = details.payload != null
+          ? jsonDecode(details.payload!)
+          : null;
       if (data == null) return;
 
       if (details.actionId == 'accept_action') {
@@ -101,10 +104,11 @@ Future<void> initFirebaseMessaging(
     },
   );
 
-
   // Android channel creation
   await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >()
       ?.createNotificationChannel(rideRequestChannel);
 
   // Background handler
@@ -123,7 +127,9 @@ Future<void> initFirebaseMessaging(
     final BuildContext? context = navigatorKey.currentContext;
 
     if (context == null || !context.mounted) {
-      print('Firebase onMessage: Navigator Context is not available, skipping message processing.');
+      print(
+        'Firebase onMessage: Navigator Context is not available, skipping message processing.',
+      );
       return;
     }
 
@@ -140,8 +146,6 @@ Future<void> initFirebaseMessaging(
     if (driverStatus == "OF") {
       return;
     }
-
-
 
     // New ride request
     final rideRequest = RideRequest(
@@ -177,7 +181,8 @@ Future<void> initFirebaseMessaging(
         barrierDismissible: false,
         builder: (requestContext) {
           Future.delayed(Duration(seconds: popupDuration), () {
-            if (isRideRequestDialogActive && Navigator.of(requestContext).canPop()) {
+            if (isRideRequestDialogActive &&
+                Navigator.of(requestContext).canPop()) {
               Navigator.of(requestContext).pop();
               try {
                 ref.read(rideRequestProvider.notifier).state = null;
@@ -196,7 +201,7 @@ Future<void> initFirebaseMessaging(
             content: ConstrainedBox(
               constraints: BoxConstraints(
                 maxWidth: double.infinity,
-                maxHeight: 300,
+                maxHeight: 450,
               ),
               child: RideRequestCard(
                 rideRequest: rideRequest,
@@ -227,7 +232,6 @@ Future<void> initFirebaseMessaging(
       return;
     }
 
-
     final rideRequest = RideRequest(
       pickup: data['pickup'] ?? '',
       drop: data['drop'] ?? '',
@@ -253,20 +257,29 @@ Future<void> initFirebaseMessaging(
         context: context,
         barrierDismissible: false,
         builder: (requestContext) {
-          Future.delayed(Duration(seconds: int.tryParse(data['duration'] ?? '30') ?? 30), () {
-            // 🛑 NEW CHECK: Flag இன்னும் True ஆக இருக்கிறதா என்று சோதிக்கவும்.
-            if (isRideRequestDialogActive && Navigator.of(requestContext).canPop()) {
-              Navigator.of(requestContext).pop();
-              ref.read(rideRequestProvider.notifier).state = null;
-              audioPlayer.stop();
-            }
-          });
+          Future.delayed(
+            Duration(seconds: int.tryParse(data['duration'] ?? '30') ?? 30),
+            () {
+              // 🛑 NEW CHECK: Flag இன்னும் True ஆக இருக்கிறதா என்று சோதிக்கவும்.
+              if (isRideRequestDialogActive &&
+                  Navigator.of(requestContext).canPop()) {
+                Navigator.of(requestContext).pop();
+                ref.read(rideRequestProvider.notifier).state = null;
+                audioPlayer.stop();
+              }
+            },
+          );
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             insetPadding: const EdgeInsets.all(24),
             contentPadding: EdgeInsets.zero,
             content: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: double.infinity, maxHeight: 300),
+              constraints: BoxConstraints(
+                maxWidth: double.infinity,
+                maxHeight: 450,
+              ),
               child: RideRequestCard(
                 rideRequest: rideRequest,
                 audioPlayer: audioPlayer,
@@ -280,14 +293,11 @@ Future<void> initFirebaseMessaging(
       });
     }
   });
-
 }
 
 // Ride cancelled dialog
 // Ride cancelled dialog (வரி 293-இல் இருந்து)
-void showRideCancelledDialog(
-    BuildContext context,
-    ) {
+void showRideCancelledDialog(BuildContext context) {
   if (!context.mounted) return;
 
   // First: close any open dialogs
@@ -406,10 +416,7 @@ void showRideCancelledDialog(
       return FadeTransition(
         opacity: animation,
         child: ScaleTransition(
-          scale: CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutBack,
-          ),
+          scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
           child: child,
         ),
       );

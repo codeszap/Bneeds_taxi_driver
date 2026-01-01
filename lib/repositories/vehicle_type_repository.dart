@@ -10,50 +10,57 @@ class VehicleTypeRepository {
   final _client = ApiClient().dio;
 
   Future<List<VehicleTypeModel>> fetchVehicleTypes() async {
-    final response = await _client.get(ApiEndpoints.getVehicleType);
+    try {
+      print("🚀 Fetching Vehicle Types...");
+      final response = await _client.get(ApiEndpoints.getVehicleType);
+      print("✅ Vehicle Types Response: ${response.statusCode}");
 
-    dynamic resData = response.data;
+      dynamic resData = response.data;
 
-    // If API returns a JSON string, decode it
-    if (resData is String) {
-      resData = jsonDecode(resData);
-    }
-
-    // Check if valid map and status is success
-    if (resData is Map && resData['status'] == 'success') {
-      if (resData['data'] is List) {
-        final list = resData['data'] as List;
-        return list.map((e) => VehicleTypeModel.fromJson(e)).toList();
+      // If API returns a JSON string, decode it
+      if (resData is String) {
+        resData = jsonDecode(resData);
       }
-    }
 
-    // If status not success or data not list, return empty list
-    return [];
+      // Check if valid map and status is success
+      if (resData is Map && resData['status'] == 'success') {
+        if (resData['data'] is List) {
+          final list = resData['data'] as List;
+          return list.map((e) => VehicleTypeModel.fromJson(e)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      print("❌ Error fetching vehicle types: $e");
+      return [];
+    }
   }
 
   Future<List<VehicleSubType>> fetchVehicleSubTypes(int vehTypeId) async {
-    final response = await _client.get(
-      '${ApiEndpoints.getVehicleSubType}&VehTypeid=$vehTypeId',
-    );
+    try {
+      print("🚀 Fetching Vehicle SubTypes for $vehTypeId...");
+      final response = await _client.get(
+        '${ApiEndpoints.getVehicleSubType}&VehTypeid=$vehTypeId',
+      );
 
-    dynamic resData = response.data;
+      dynamic resData = response.data;
 
-    // If API returns a JSON string, decode it
-    if (resData is String) {
-      resData = jsonDecode(resData);
-    }
-
-    // Check if valid map and status is success
-    if (resData is Map && resData['status'] == 'success') {
-      if (resData['data'] is List) {
-        final list = resData['data'] as List;
-        return list.map((e) => VehicleSubType.fromJson(e)).toList();
+      // If API returns a JSON string, decode it
+      if (resData is String) {
+        resData = jsonDecode(resData);
       }
+
+      // Check if valid map and status is success
+      if (resData is Map && resData['status'] == 'success') {
+        if (resData['data'] is List) {
+          final list = resData['data'] as List;
+          return list.map((e) => VehicleSubType.fromJson(e)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      print("❌ Error fetching vehicle sub types: $e");
+      return [];
     }
-
-    // If status not success or data not list, return empty list
-    return [];
   }
-
-
 }
