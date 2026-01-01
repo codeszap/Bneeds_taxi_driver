@@ -13,6 +13,14 @@ Future<void> sendOTP({
   required Function(String error) onError,
 }) async {
   try {
+    // Demo/Test Account Bypass
+    if (phoneNumber == "9876543210") {
+      print("🔹 Demo Account Detected: Bypassing SMS API");
+      ref.read(generatedOtpProvider.notifier).state = "1234";
+      onCodeSent();
+      return;
+    }
+
     // 1. Generate a random 4-digit OTP
     final otp = (Random().nextInt(9000) + 1000).toString(); // 1000–9999
 
