@@ -56,21 +56,30 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
   @override
   void initState() {
     super.initState();
-    _loadIds();
     WakelockPlus.enable();
-    Future.microtask(() async {
-      await _initForTrip();
-    });
+    _startInitialization();
+  }
+
+  Future<void> _startInitialization() async {
+    await _loadIds();
+    await _initForTrip();
   }
 
   Future<void> _loadIds() async {
-    final bId = await SharedPrefsHelper.getBookingId();
-    final rId = await SharedPrefsHelper.getRiderId();
+    print("🔍 OnTripScreen: Loading IDs from SharedPrefs...");
+    await SharedPrefsHelper.reload(); // Ensure we have latest data
+    
+    final bId = SharedPrefsHelper.getBookingId();
+    final rId = SharedPrefsHelper.getRiderId();
+
+    print("📊 OnTripScreen: Raw IDs from Prefs -> bookingId: '$bId', riderId: '$rId'");
 
     setState(() {
       bookingId = int.tryParse(bId);
       riderId = int.tryParse(rId);
     });
+    
+    print("🎯 OnTripScreen: Parsed IDs -> bookingId: $bookingId, riderId: $riderId");
   }
 
   Future<void> _initForTrip() async {
@@ -78,6 +87,11 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
     if (!hasPermission) return;
 
     // ✅ Step 1: Fetch booking list from API
+    if (bookingId == null || riderId == null) {
+      print("❌ Cannot init trip: ID is null. bookingId: $bookingId, riderId: $riderId");
+      return;
+    }
+
     final bookingList = await ref.read(
       fetchBookingDetailProvider(
         BookingParams(bookingId: bookingId!, riderId: riderId!),
@@ -726,7 +740,30 @@ class _OnTripScreenState extends ConsumerState<OnTripScreen> {
   @override
   Widget build(BuildContext context) {
     if (bookingId == null || riderId == null) {
-      return const Center(child: CircularProgressIndicator());
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 20),
+              Text(
+                "Initializing Trip... ${bookingId == null ? '(Waiting for BookingId)' : ''} ${riderId == null ? '(Waiting for RiderId)' : ''}",
+                style: const TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 20),
+              TextButton(
+                onPressed: () => _startInitialization(),
+                child: const Text("Retry Connection"),
+              ),
+              TextButton(
+                onPressed: () => context.go(AppRoutes.driverHome),
+                child: const Text("Go Back Home"),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     final trip = ref.watch(tripProvider);

@@ -6,6 +6,7 @@ import '../../core/locationHelper.dart';
 import '../../services/RideOverlayHelper.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/app_update_service.dart';
+import '../../services/firebase_service.dart';
 import '../onTrip/TripNotifier.dart';
 
 class DriverHomeScreen extends ConsumerStatefulWidget {
@@ -18,7 +19,8 @@ class DriverHomeScreen extends ConsumerStatefulWidget {
   ConsumerState<DriverHomeScreen> createState() => _DriverHomeScreenState();
 }
 
-class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
+class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen>
+    with WidgetsBindingObserver {
   GoogleMapController? _mapController;
   LatLng? _currentLocation;
   Set<Marker> _markers = {};
@@ -111,6 +113,8 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
       };
     }
     _startListeningLocation();
+    _checkOverlayPermission();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final savedStatus = await SharedPrefsHelper.getDriverStatus();
       final statusToSet = savedStatus ?? "OF";
@@ -138,6 +142,122 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _checkOverlayPermission() async {
+    bool granted = await FlutterOverlayWindow.isPermissionGranted();
+    if (!granted) {
+      await _showOverlayPermissionDialog();
+    }
+  }
+
+  Future<void> _showOverlayPermissionDialog() async {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.layers_outlined, color: AppColors.primary, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                "Overlay Permission",
+                style: AppTextStyles.heading(size: 18),
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          "To receive ride requests while the app is in the background, please enable 'Display over other apps' permission.",
+          style: TextStyle(fontSize: 15, color: Colors.black87),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              "Later",
+              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            onPressed: () async {
+              Navigator.pop(context);
+              await FlutterOverlayWindow.requestPermission();
+            },
+            child: const Text(
+              "Enable Now",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    print("📱 AppLifecycleState changed to: $state");
+    if (state == AppLifecycleState.paused) {
+      // App is truly in background
+      _showOverlayIfOnline();
+    } else if (state == AppLifecycleState.resumed) {
+      // App returned to foreground
+      _hideOverlay();
+    }
+  }
+
+  Future<void> _showOverlayIfOnline() async {
+    final status = ref.read(driverStatusProvider);
+    print("🔍 Checking if should show overlay. Status: $status");
+    if (status == "OL") {
+      bool granted = await FlutterOverlayWindow.isPermissionGranted();
+      if (granted) {
+        bool alreadyActive = await FlutterOverlayWindow.isActive();
+        if (!alreadyActive) {
+          print("🚀 Showing Overlay Bubble...");
+          await SharedPrefsHelper.reload(); // Refresh from other isolates
+          final pos = SharedPrefsHelper.getOverlayPosition();
+          double? savedX = pos["x"]?.toDouble();
+          double? savedY = pos["y"]?.toDouble();
+
+          print("📊 Loaded coordinates for overlay: X=$savedX, Y=$savedY");
+
+          // If 0,0 (untouched), use a nice default
+          if ((savedX == null || savedX == 0) &&
+              (savedY == null || savedY == 0)) {
+            print("💡 Using default coordinates (center-top)");
+            savedX = 100;
+            savedY = 200;
+          }
+
+          await RideOverlayHelper.showOverlay(
+            context,
+            posX: savedX,
+            posY: savedY,
+          );
+        } else {
+          print("ℹ️ Overlay is already active.");
+        }
+      } else {
+        print("⚠️ Overlay permission not granted.");
+      }
+    }
+  }
+
+  Future<void> _hideOverlay() async {
+    await RideOverlayHelper.closeOverlay();
   }
 
   Future<void> _startListeningLocation() async {
@@ -185,6 +305,7 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _positionStreamSubscription?.cancel();
     _audioPlayer.dispose();
     WakelockPlus.disable();
@@ -442,18 +563,13 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
                   //     await FlutterOverlayWindow.isPermissionGranted();
                   //  if (granted && newStatus == "OL") {
                   if (newStatus == "OL") {
-                    final pos =
-                        SharedPrefsHelper.getOverlayPosition(); // Map {"x": .., "y": ..}
+                    final pos = SharedPrefsHelper.getOverlayPosition();
                     final savedX = pos["x"]?.toDouble();
                     final savedY = pos["y"]?.toDouble();
-                    // await RideOverlayHelper.showOverlay(
-                    //   context,
-                    //   posX: savedX,
-                    //   posY: savedY,
-                    // );
+                    // Optional: show only if background, but usually we don't show when in app
                   }
                   if (newStatus == "OF") {
-                    //  await RideOverlayHelper.closeOverlay();
+                    await RideOverlayHelper.closeOverlay();
                   }
                 },
               ),

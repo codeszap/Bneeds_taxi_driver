@@ -383,6 +383,9 @@ class _TripCompleteScreenState extends ConsumerState<TripCompleteScreen> {
                                     await ref
                                         .read(tripProvider.notifier)
                                         .reset();
+                                    await ref
+                                        .read(tripProvider.notifier)
+                                        .clearId();
                                     if (mounted)
                                       context.go(AppRoutes.driverHome);
                                   },

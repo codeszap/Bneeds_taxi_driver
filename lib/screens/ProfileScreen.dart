@@ -284,7 +284,12 @@ class _DriverProfileScreenState extends ConsumerState<DriverProfileScreen> {
     final selectedVehicleSubTypeId = ref.read(selectedVehicleSubTypeProvider);
 
     final riderId = SharedPrefsHelper.getRiderId();
-    final fcmToken = await FirebaseMessaging.instance.getToken();
+    String? fcmToken;
+    try {
+      fcmToken = await FirebaseMessaging.instance.getToken();
+    } catch (e) {
+      debugPrint("🚨 ProfileScreen: Failed to get FCM token: $e");
+    }
 
 
     // Fetch vehicle type/sub-type names

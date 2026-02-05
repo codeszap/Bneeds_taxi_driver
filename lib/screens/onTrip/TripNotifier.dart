@@ -98,6 +98,9 @@ class TripNotifier extends StateNotifier<TripState> {
   Future<void> reset() async {
     _timer?.cancel();
     state = TripState();
+  }
+
+  Future<void> clearId() async {
     await SharedPrefsHelper.clearBookingId();
   }
 }

@@ -2,7 +2,6 @@ import 'package:bneeds_taxi_driver/utils/storage.dart';
 
 import '../models/rideRequest.dart';
 
-
 class SharedPrefsKeys {
   static const String driverStatus = "driverStatus";
   static const String riderId = "riderId";
@@ -15,7 +14,6 @@ class SharedPrefsKeys {
   static const String isDriverProfileCompleted = "isDriverProfileCompleted";
   static const String driverFcmToken = "driverFcmToken";
   static const String driverUsername = "driverUsername";
-
 }
 
 class SharedPrefsHelper {
@@ -24,6 +22,10 @@ class SharedPrefsHelper {
   /// Initialize (call once in main.dart before runApp)
   static Future init() async {
     _prefs = await SharedPreferences.getInstance();
+  }
+
+  static Future<void> reload() async {
+    await _prefs?.reload();
   }
 
   /// ---------- SET METHODS ----------
@@ -68,25 +70,34 @@ class SharedPrefsHelper {
   }
 
   /// ---------- GET METHODS ----------
-  static String getDriverStatus() => _prefs?.getString(SharedPrefsKeys.driverStatus) ?? "OF";
+  static String getDriverStatus() =>
+      _prefs?.getString(SharedPrefsKeys.driverStatus) ?? "OF";
 
-  static String getRiderId() => _prefs?.getString(SharedPrefsKeys.riderId) ?? "";
+  static String getRiderId() =>
+      _prefs?.getString(SharedPrefsKeys.riderId) ?? "";
 
-  static String getBookingId() => _prefs?.getString(SharedPrefsKeys.bookingId) ?? "";
+  static String getBookingId() =>
+      _prefs?.getString(SharedPrefsKeys.bookingId) ?? "";
 
   static String getUserId() => _prefs?.getString(SharedPrefsKeys.userId) ?? "";
 
-  static String? getOngoingTrip() => _prefs?.getString(SharedPrefsKeys.ongoingTrip);
+  static String? getOngoingTrip() =>
+      _prefs?.getString(SharedPrefsKeys.ongoingTrip);
 
-  static String getDriverMobile() => _prefs?.getString(SharedPrefsKeys.driverMobile) ?? "";
+  static String getDriverMobile() =>
+      _prefs?.getString(SharedPrefsKeys.driverMobile) ?? "";
 
-  static String getDriverName() => _prefs?.getString(SharedPrefsKeys.driverName) ?? "";
+  static String getDriverName() =>
+      _prefs?.getString(SharedPrefsKeys.driverName) ?? "";
 
-  static String getDriverCity() => _prefs?.getString(SharedPrefsKeys.driverCity) ?? "";
+  static String getDriverCity() =>
+      _prefs?.getString(SharedPrefsKeys.driverCity) ?? "";
 
-  static bool getIsDriverProfileCompleted() => _prefs?.getBool(SharedPrefsKeys.isDriverProfileCompleted) ?? false;
+  static bool getIsDriverProfileCompleted() =>
+      _prefs?.getBool(SharedPrefsKeys.isDriverProfileCompleted) ?? false;
 
-  static String getDriverFcmToken() => _prefs?.getString(SharedPrefsKeys.driverFcmToken) ?? "";
+  static String getDriverFcmToken() =>
+      _prefs?.getString(SharedPrefsKeys.driverFcmToken) ?? "";
 
   /// ---------- CLEAR METHODS ----------
   static Future clearDriverStatus() async {
@@ -104,6 +115,7 @@ class SharedPrefsHelper {
   static bool getDriverProfileCompleted() {
     return _prefs?.getBool("isDriverProfileCompleted") ?? false;
   }
+
   static Future setDriverUsername(String username) async {
     await _prefs?.setString(SharedPrefsKeys.driverUsername, username);
   }
@@ -131,7 +143,8 @@ class SharedPrefsHelper {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('driverVehicleSubTypeId');
   }
-// Save trip data
+
+  // Save trip data
   static Future<void> setTripData(Map<String, dynamic> tripData) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('tripData', jsonEncode(tripData));
@@ -151,7 +164,7 @@ class SharedPrefsHelper {
     return null;
   }
 
-// Get trip data
+  // Get trip data
   static Future<Map<String, dynamic>?> getTripData() async {
     final prefs = await SharedPreferences.getInstance();
     final data = prefs.getString('tripData');
@@ -161,7 +174,7 @@ class SharedPrefsHelper {
     return null;
   }
 
-// Clear trip data
+  // Clear trip data
   static Future<void> clearTripData() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('tripData');
@@ -202,14 +215,12 @@ class SharedPrefsHelper {
   static Future setDriverGender(String value) async =>
       await _prefs?.setString('driverGender', value);
 
-  static String getDriverGender() =>
-      _prefs?.getString('driverGender') ?? "";
+  static String getDriverGender() => _prefs?.getString('driverGender') ?? "";
 
   static Future setDriverDob(String value) async =>
       await _prefs?.setString('driverDob', value);
 
-  static String getDriverDob() =>
-      _prefs?.getString('driverDob') ?? "";
+  static String getDriverDob() => _prefs?.getString('driverDob') ?? "";
 
   static Future setDriverVehicleTypeName(String value) async =>
       await _prefs?.setString('driverVehicleTypeName', value);
@@ -252,12 +263,12 @@ class SharedPrefsHelper {
 
   static Future<String?> getDriverAdhaarNo() async =>
       _prefs?.getString('driverAdhaarNo');
+
   /// ---------- DRIVER ID ----------
   static Future setDriverId(String value) async =>
       await _prefs?.setString('driverId', value);
 
-  static String getDriverId() =>
-      _prefs?.getString('driverId') ?? "";
+  static String getDriverId() => _prefs?.getString('driverId') ?? "";
 
   static Future<void> setOverlayPosition(int x, int y) async {
     await _prefs?.setInt("overlay_pos_x", x);
@@ -265,10 +276,30 @@ class SharedPrefsHelper {
   }
 
   /// Get saved overlay position
-  static Map<String, int> getOverlayPosition() {
-    final x = _prefs?.getInt("overlay_pos_x") ?? 0;
-    final y = _prefs?.getInt("overlay_pos_y") ?? 0;
+  static Map<String, int?> getOverlayPosition() {
+    final x = _prefs?.getInt("overlay_pos_x");
+    final y = _prefs?.getInt("overlay_pos_y");
     return {"x": x, "y": y};
   }
 
+  // 🚗 Last Ride Request Storage (For Overlay Restoration)
+  static Future<void> setLastRideRequest(Map<String, dynamic>? data) async {
+    if (data == null) {
+      await _prefs?.remove("last_ride_request");
+    } else {
+      await _prefs?.setString("last_ride_request", jsonEncode(data));
+    }
+  }
+
+  static Map<String, dynamic>? getLastRideRequest() {
+    final data = _prefs?.getString("last_ride_request");
+    if (data != null) {
+      try {
+        return jsonDecode(data);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
 }

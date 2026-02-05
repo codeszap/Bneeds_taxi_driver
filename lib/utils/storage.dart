@@ -41,7 +41,7 @@ export 'package:bneeds_taxi_driver/repositories/profile_repository.dart';
 
 // -------------------- Project Services --------------------
 export 'package:bneeds_taxi_driver/services/FirebasePushService.dart';
-export 'package:bneeds_taxi_driver/services/firebase_service.dart';
+// export 'package:bneeds_taxi_driver/services/firebase_service.dart';
 
 // -------------------- Project Screens --------------------
 export 'package:bneeds_taxi_driver/screens/onTrip/OnTripScreen.dart';

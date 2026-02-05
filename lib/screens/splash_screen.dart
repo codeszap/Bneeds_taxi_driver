@@ -55,17 +55,26 @@ class _DriverSplashScreenState extends ConsumerState<DriverSplashScreen> {
     // 2️⃣ Check profile completion + riderId + FCM token
     final isProfileComplete = SharedPrefsHelper.getDriverProfileCompleted();
     final riderId = SharedPrefsHelper.getRiderId();
-    String? fcmToken = await FirebaseMessaging.instance.getToken();
-
-    // Retry fetching FCM token if null
-    int retries = 0;
-    while (fcmToken == null && retries < 3) {
-      await Future.delayed(const Duration(seconds: 1));
+    String? fcmToken;
+    
+    try {
       fcmToken = await FirebaseMessaging.instance.getToken();
-      retries++;
+
+      // Retry fetching FCM token if null
+      int retries = 0;
+      while (fcmToken == null && retries < 3) {
+        await Future.delayed(const Duration(seconds: 1));
+        fcmToken = await FirebaseMessaging.instance.getToken();
+        retries++;
+      }
+    } catch (e) {
+      print("🚨 FCM Token Fetch Error: $e");
+      fcmToken = null; // Ensure it's null to handle fallback
     }
 
-    if (isProfileComplete && riderId.isNotEmpty && fcmToken != null) {
+    if (isProfileComplete && riderId.isNotEmpty) {
+      // Even if fcmToken is null, we proceed if profile is complete
+      // Notification sounds/alerts might not work, but the app stays functional
       context.go(AppRoutes.driverHome);
     } else {
       // If any essential info missing, go to login/profile
